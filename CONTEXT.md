@@ -65,6 +65,11 @@ Roles del sistema (`user_role`): `farmer`, `technician`, `supervisor`, `admin`.
 ### 3.4 Administrador (`admin`) — usa la WEB
 - Gestiona: usuarios, permisos, cultivos, tipos de asistencia, unidades, catálogos, zonas, reglas y configuraciones.
 - **Permisos:** gestión global.
+- **Alta de usuarios:**
+  - No existe un rol `superadmin`. `admin` es el único rol que crea usuarios, de cualquier rol (`farmer`, `technician`, `supervisor`, `admin`).
+  - El alta se realiza mediante la Edge Function `admin-create-user`, que valida que quien llama sea un `admin` activo según `profiles`, crea el usuario en Auth con la clave de servicio (solo en el servidor, nunca en el cliente) y completa los datos con la RPC `admin_provision_user` (`profiles`, `farmers` o `user_zones`, y `audit_logs`). Si la RPC falla, se elimina el usuario de Auth recién creado.
+  - Campos de la solicitud: `email`, `password` (mínimo 8 caracteres), `full_name`, `role`; opcionales: `phone`, `zone_ids` (solo `technician` / `supervisor`), `community_id` y `age_range` (datos del agricultor).
+  - La pantalla de administración (W-14) sigue pendiente; por ahora la función se invoca directamente.
 
 ---
 
