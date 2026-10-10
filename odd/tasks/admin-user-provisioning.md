@@ -42,7 +42,8 @@ Strategy: `ask-on-risk`. Forecast: ~300 authored lines. Branch: `feat/admin-user
 
 ## Progress
 
-- [x] T1 written, not deployed. Commit recorded below once made.
+- [x] T1 written, not deployed — commit `c811436`.
+- Review: receipt-driven development is on. Assessment against base `3d66828` (untracked excluded) → `review_due`, `slice_budget_reached`. Preflight STATUS stopped at `collect / intended_untracked_selection_required` because of the untracked build artifact `android/.kotlin/sessions/*.salive`; the selection payload is not documented, so no review was started. Outcome: unavailable, pending.
 
 Verification for T1:
 - SQL, on the remote schema as `service_role`, inside one `do` block that ends in `raise exception` (nothing persisted; confirmed afterwards that neither the function nor the test users exist): 4 profiles created; farmer name trimmed; 1 `farmers` row with community and age range, 0 zone rows for the farmer; technician with `[z1, z1, z2, null]` got 2 `user_zones` rows and a null phone from `''`; supervisor with no zones got 0; admin got no extra rows; 4 `audit_logs` rows; non-admin actor → `42501` and no profile; duplicate phone → `23505`; `anon` and `authenticated` cannot execute, `service_role` can.
