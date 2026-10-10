@@ -9,6 +9,7 @@ import 'ui/features/home/views/home_view.dart';
 import 'ui/features/login/view_models/login_view_model.dart';
 import 'ui/features/login/views/login_view.dart';
 import 'ui/features/staff_home/views/staff_home_view.dart';
+import 'ui/features/technician/views/technician_home_view.dart';
 import 'ui/features/welcome/views/welcome_view.dart';
 
 class AgroApp extends StatelessWidget {
@@ -45,6 +46,7 @@ class _Login extends StatelessWidget {
       MaterialPageRoute<void>(
         builder: (_) => switch (user.role) {
           UserRole.farmer => const _FarmerHome(),
+          UserRole.technician => const _TechnicianHome(),
           _ => _StaffHome(role: user.role),
         },
       ),
@@ -76,6 +78,20 @@ class _FarmerHome extends StatelessWidget {
       ),
       builder: (context, _) =>
           HomeView(viewModel: context.read<HomeViewModel>()),
+    );
+  }
+}
+
+class _TechnicianHome extends StatelessWidget {
+  const _TechnicianHome();
+
+  @override
+  Widget build(BuildContext context) {
+    return TechnicianHomeView(
+      onSignOut: () => Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const _Welcome()),
+        (_) => false,
+      ),
     );
   }
 }
