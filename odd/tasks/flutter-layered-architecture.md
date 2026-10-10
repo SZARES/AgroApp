@@ -47,4 +47,17 @@ Strategy: `ask-on-risk`. Forecast: ~700 authored lines (generated `*.g.dart` exc
 
 ## Progress
 
-Not started.
+- [x] T1 done — commit `0587282` (made by the repo owner while the writer worked; message `a`, also carries `CONTEXT.md`, this document and regenerated plugin registrants).
+- [x] T2 done — commit `8a0e80d` (same origin; message `aa`).
+
+Verification (parent re-run on `8a0e80d`): `flutter analyze` → no issues; `flutter test` → 25 passed. Writer RED/GREEN for T1: 0/18 against stubs, then 18/18.
+
+Known gaps:
+- `dart run build_runner build` fails on this host with build_runner 2.15 + sqlite3 3.x; `dart run build_runner build --force-jit` works.
+- `sync_batch` is granted to `authenticated` only; without login, uploads fail and stay retryable.
+- Authored size ~1,430 lines (forecast ~700); chain strategy not chosen, no PR requested yet.
+- Review: assessed `medium`, `review_due` (`slice_budget_reached`) against base `10023a8`; candidate consent declined by the user for this change (no review record; future reviews stay enabled).
+
+Accepted deviations: `SyncService` interface in its own file; Drift getter `targetTable` (SQL `table_name`); `requeueInterrupted()` recovers rows stuck in `syncing`; ids missing from the RPC response become `error`; one batch of 50 per `syncPending()` call.
+
+Next step: add login so real sync can run.
