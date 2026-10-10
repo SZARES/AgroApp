@@ -115,10 +115,9 @@ class OutboxRepository {
   Future<String> deviceId() {
     final settings = _database.appSettings;
     return _database.transaction(() async {
-      final existing =
-          await (_database.select(settings)
-                ..where((row) => row.key.equals(_deviceIdKey)))
-              .getSingleOrNull();
+      final existing = await (_database.select(
+        settings,
+      )..where((row) => row.key.equals(_deviceIdKey))).getSingleOrNull();
       if (existing != null) return existing.value;
 
       final generated = _uuid.v4();
