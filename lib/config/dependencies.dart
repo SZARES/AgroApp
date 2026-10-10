@@ -3,6 +3,7 @@ import 'package:provider/single_child_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/local/app_database.dart';
+import '../data/repositories/auth_repository.dart';
 import '../data/repositories/outbox_repository.dart';
 import '../data/services/connectivity_service.dart';
 import '../data/services/supabase_sync_service.dart';
@@ -16,6 +17,7 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
       create: (_) => AppDatabase(),
       dispose: (_, database) => database.close(),
     ),
+    Provider<AuthRepository>(create: (_) => const MockAuthRepository()),
     Provider<SyncService>(create: (_) => SupabaseSyncService(supabaseClient)),
     Provider<ConnectivityService>(create: (_) => DeviceConnectivityService()),
     Provider<OutboxRepository>(
