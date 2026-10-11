@@ -11,6 +11,8 @@ const caseDetailTables = [
   'technical_assistance',
   'recommendations',
   'recommendation_confirmations',
+  'recommendation_followups',
+  'visit_attendance_confirmations',
   'profiles',
 ];
 
@@ -99,32 +101,77 @@ class CaseReader {
     rows.sort((a, b) => _text(b['created_at']).compareTo(_text(a['created_at'])));
     final confirmations = await _store.list('recommendation_confirmations');
     final confirmed = {for (final c in confirmations) '${c['recommendation_id']}'};
+    final followups = {
+      for (final f in await _store.list('recommendation_followups'))
+        '${f['recommendation_id']}': f,
+    };
     return [
       for (final r in rows)
         CaseRecommendation(
           id: '${r['id']}',
           description: '${r['description']}',
           isConfirmed: confirmed.contains('${r['id']}'),
+          followed: followups['${r['id']}']?['followed'] as bool?,
           dueDate: date(r['due_date']),
           createdAt: date(r['created_at']),
           isPending:
               await _store.isPending('recommendations', '${r['id']}') ||
-              await _isConfirmationPending('${r['id']}', confirmations),
+              await _isConfirmationPending('${r['id']}', confirmations) ||
+              (followups['${r['id']}'] != null &&
+                  await _store.isPending(
+                    'recommendation_followups',
+                    '${followups['${r['id']}']!['id']}',
+                  )),
         ),
     ];
   }
 
-  /// The upcoming scheduled visit of the case (earliest first), if any.
+  /// The upcoming scheduled visit of the case (earliest first); when none is
+  /// left, the most recent visit already done.
   Future<CaseVisit?> visit(String incidentId) async {
+    final assistances = await _assistances(incidentId);
     final scheduled = [
-      for (final a in await _assistances(incidentId))
+      for (final a in assistances)
         if (a['status'] == 'scheduled' && date(a['assistance_date']) != null) a,
     ]..sort((a, b) => _text(a['assistance_date']).compareTo(_text(b['assistance_date'])));
-    if (scheduled.isEmpty) return null;
-    final row = scheduled.first;
+    if (scheduled.isNotEmpty) return _toVisit(scheduled.first, completed: false);
+
+    // A recommendation-only assistance is not a visit.
+    final done = [
+      for (final a in assistances)
+        if (a['status'] == 'completed' &&
+            a['provider'] == 'AIDER' &&
+            a['topic'] != 'Recomendación' &&
+            date(a['assistance_date']) != null)
+          a,
+    ]..sort((a, b) => _text(b['assistance_date']).compareTo(_text(a['assistance_date'])));
+    if (done.isEmpty) return null;
+    return _toVisit(done.first, completed: true);
+  }
+
+  Future<CaseVisit> _toVisit(
+    Map<String, dynamic> row, {
+    required bool completed,
+  }) async {
+    final id = '${row['id']}';
+    final answers = await _store.list(
+      'visit_attendance_confirmations',
+      where: (r) => r['assistance_id'] == id,
+    );
     return CaseVisit(
       date: date(row['assistance_date'])!,
       comment: _nonEmpty(row['observations']) ?? _nonEmpty(row['topic']),
+      assistanceId: id,
+      isCompleted: completed,
+      attendance: answers.isEmpty
+          ? null
+          : VisitAttendance(
+              arrived: answers.first['arrived'] == true,
+              isPending: await _store.isPending(
+                'visit_attendance_confirmations',
+                '${answers.first['id']}',
+              ),
+            ),
     );
   }
 

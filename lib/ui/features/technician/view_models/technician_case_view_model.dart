@@ -80,6 +80,16 @@ class TechnicianCaseViewModel extends ChangeNotifier {
   Future<Result<void>> confirmRecommendation(String recommendationId) =>
       _run(() => _repository.confirmRecommendation(recommendationId));
 
+  Future<Result<void>> markRecommendationFollowed(
+    String recommendationId, {
+    required bool followed,
+  }) => _run(
+    () => _repository.markRecommendationFollowed(
+      recommendationId,
+      followed: followed,
+    ),
+  );
+
   Future<Result<void>> markAttended({String? comment}) =>
       _run(() => _repository.markAttended(caseId, comment: comment));
 

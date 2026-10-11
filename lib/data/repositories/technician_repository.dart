@@ -53,6 +53,13 @@ abstract class TechnicianRepository {
   /// The technician records that the farmer applied the recommendation.
   Future<Result<void>> confirmRecommendation(String recommendationId);
 
+  /// The technician marks whether the farmer followed the recommendation
+  /// (can be changed later).
+  Future<Result<void>> markRecommendationFollowed(
+    String recommendationId, {
+    required bool followed,
+  });
+
   /// Moves the case to attended (and completes its scheduled visit).
   Future<Result<void>> markAttended(String incidentId, {String? comment});
 
@@ -395,6 +402,33 @@ class LocalTechnicianRepository implements TechnicianRepository {
           },
         );
       });
+
+  @override
+  Future<Result<void>> markRecommendationFollowed(
+    String recommendationId, {
+    required bool followed,
+  }) => _guard(() async {
+    final recommendation = await _store.get('recommendations', recommendationId);
+    if (recommendation == null) {
+      throw const TechnicianException(TechnicianFailure.notFound);
+    }
+    // One mark per recommendation: reuse its row so the server upserts it.
+    final existing = await _store.list(
+      'recommendation_followups',
+      where: (f) => f['recommendation_id'] == recommendationId,
+    );
+    await _store.save(
+      table: 'recommendation_followups',
+      id: existing.isEmpty ? _store.newId() : '${existing.first['id']}',
+      op: SyncOp.upsert,
+      row: {
+        'recommendation_id': recommendationId,
+        'farmer_id': recommendation['farmer_id'],
+        'technician_id': _technicianId,
+        'followed': followed,
+      },
+    );
+  });
 
   @override
   Future<Result<void>> markAttended(String incidentId, {String? comment}) =>

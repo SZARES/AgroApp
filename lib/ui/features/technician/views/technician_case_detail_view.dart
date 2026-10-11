@@ -229,9 +229,12 @@ class _Content extends StatelessWidget {
             _RecommendationTile(
               recommendation: recommendation,
               busy: busy,
-              onConfirm: () => _perform(
+              onMark: (followed) => _perform(
                 context,
-                () => viewModel.confirmRecommendation(recommendation.id),
+                () => viewModel.markRecommendationFollowed(
+                  recommendation.id,
+                  followed: followed,
+                ),
               ),
             ),
         const SizedBox(height: 24),
@@ -323,14 +326,27 @@ class _VisitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final attendance = visit.attendance;
     return Card(
       child: ListTile(
         leading: const Icon(Icons.event_available_outlined, size: 32),
         title: Text(
-          'Visita programada: ${formatDay(visit.date)}',
+          '${visit.isCompleted ? 'Visita realizada' : 'Visita programada'}: '
+          '${formatDay(visit.date)}',
           style: textTheme.titleMedium,
         ),
-        subtitle: visit.comment == null ? null : Text(visit.comment!),
+        subtitle: Text(
+          [
+            ?visit.comment,
+            if (attendance == null)
+              'El agricultor aún no confirmó si usted llegó'
+            else
+              attendance.arrived
+                  ? 'El agricultor confirmó que usted llegó'
+                  : 'El agricultor indicó que usted no llegó',
+            if (attendance?.isPending ?? false) 'Por enviar',
+          ].join('\n'),
+        ),
       ),
     );
   }
@@ -340,43 +356,76 @@ class _RecommendationTile extends StatelessWidget {
   const _RecommendationTile({
     required this.recommendation,
     required this.busy,
-    required this.onConfirm,
+    required this.onMark,
   });
 
   final CaseRecommendation recommendation;
   final bool busy;
-  final VoidCallback onConfirm;
+  final void Function(bool followed) onMark;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final due = recommendation.dueDate;
+    final followed = recommendation.followed;
     return Card(
-      child: ListTile(
-        leading: Icon(
-          recommendation.isConfirmed
-              ? Icons.check_circle
-              : Icons.radio_button_unchecked,
-          color: recommendation.isConfirmed ? scheme.primary : scheme.outline,
-          size: 32,
-        ),
-        title: Text(recommendation.description),
-        subtitle: Text(
-          [
-            recommendation.isConfirmed
-                ? 'El agricultor la aplicó'
-                : 'Pendiente de aplicar',
-            if (due != null) 'Para el ${formatDay(due)}',
-            if (recommendation.isPending) 'Por enviar',
-          ].join(' · '),
-        ),
-        isThreeLine: false,
-        trailing: recommendation.isConfirmed
-            ? null
-            : TextButton(
-                onPressed: busy ? null : onConfirm,
-                child: const Text('Marcar aplicada'),
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            leading: Icon(
+              recommendation.isConfirmed
+                  ? Icons.check_circle
+                  : Icons.radio_button_unchecked,
+              color: recommendation.isConfirmed
+                  ? scheme.primary
+                  : scheme.outline,
+              size: 32,
+            ),
+            title: Text(recommendation.description),
+            subtitle: Text(
+              [
+                recommendation.isConfirmed
+                    ? 'El agricultor indicó "Ya lo hice"'
+                    : 'El agricultor aún no lo confirmó',
+                if (due != null) 'Para el ${formatDay(due)}',
+                if (recommendation.isPending) 'Por enviar',
+              ].join(' · '),
+            ),
+            isThreeLine: false,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                followed == true
+                    ? FilledButton.icon(
+                        onPressed: busy ? null : () => onMark(true),
+                        icon: const Icon(Icons.check),
+                        label: const Text('Siguió la indicación'),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: busy ? null : () => onMark(true),
+                        icon: const Icon(Icons.check),
+                        label: const Text('Siguió la indicación'),
+                      ),
+                followed == false
+                    ? FilledButton.icon(
+                        onPressed: busy ? null : () => onMark(false),
+                        icon: const Icon(Icons.close),
+                        label: const Text('No la siguió'),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: busy ? null : () => onMark(false),
+                        icon: const Icon(Icons.close),
+                        label: const Text('No la siguió'),
+                      ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

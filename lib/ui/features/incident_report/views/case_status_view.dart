@@ -91,7 +91,7 @@ class _Body extends StatelessWidget {
           ),
         if (detail.visit != null) ...[
           const SizedBox(height: 24),
-          _VisitCard(visit: detail.visit!),
+          _VisitCard(visit: detail.visit!, viewModel: viewModel),
         ],
         if (detail.recommendations.isNotEmpty) ...[
           const SizedBox(height: 24),
@@ -138,25 +138,110 @@ class _Body extends StatelessWidget {
 }
 
 class _VisitCard extends StatelessWidget {
-  const _VisitCard({required this.visit});
+  const _VisitCard({required this.visit, required this.viewModel});
 
   final CaseVisit visit;
+  final CaseStatusViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final messenger = ScaffoldMessenger.of(context);
     final date = visit.date;
+    final attendance = visit.attendance;
+    final assistanceId = visit.assistanceId;
+
+    Future<void> answer(bool arrived) async {
+      final result = await viewModel.confirmVisitAttendance(
+        assistanceId!,
+        arrived: arrived,
+      );
+      if (result is Error<void>) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No pudimos guardar. Intente otra vez')),
+        );
+      }
+    }
+
     return Card(
-      child: ListTile(
-        leading: const Icon(Icons.event_available_outlined, size: 36),
-        title: Text('Visita programada', style: textTheme.titleMedium),
-        subtitle: Text(
-          [
-            '${date.day.toString().padLeft(2, '0')}/'
-                '${date.month.toString().padLeft(2, '0')}/${date.year}',
-            ?visit.comment,
-          ].join('\n'),
-          style: textTheme.bodyLarge,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.event_available_outlined, size: 36),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        visit.isCompleted
+                            ? 'Visita realizada'
+                            : 'Visita programada',
+                        style: textTheme.titleMedium,
+                      ),
+                      Text(
+                        [
+                          '${date.day.toString().padLeft(2, '0')}/'
+                              '${date.month.toString().padLeft(2, '0')}/${date.year}',
+                          ?visit.comment,
+                        ].join('\n'),
+                        style: textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (assistanceId != null) ...[
+              const SizedBox(height: 12),
+              if (attendance != null)
+                Row(
+                  children: [
+                    Icon(
+                      attendance.arrived ? Icons.check_circle : Icons.cancel,
+                      color: attendance.arrived ? scheme.primary : scheme.error,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        [
+                          attendance.arrived
+                              ? 'Usted indicó que el técnico llegó'
+                              : 'Usted indicó que el técnico no llegó',
+                          if (attendance.isPending) 'Se enviará con conexión',
+                        ].join('. '),
+                        style: textTheme.titleMedium,
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                Text('¿El técnico llegó a la visita?', style: textTheme.bodyLarge),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => answer(true),
+                      icon: const Icon(Icons.check),
+                      label: const Text('El técnico llegó'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => answer(false),
+                      icon: const Icon(Icons.close),
+                      label: const Text('No llegó'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ],
         ),
       ),
     );

@@ -31,6 +31,13 @@ abstract class IncidentRepository {
   /// Records that the farmer applied a recommendation (saved on the device,
   /// uploaded later).
   Future<Result<void>> confirmRecommendation(String recommendationId);
+
+  /// Records whether the technician arrived to the visit (saved on the
+  /// device, uploaded later). A visit is answered once.
+  Future<Result<void>> confirmVisitAttendance(
+    String assistanceId, {
+    required bool arrived,
+  });
 }
 
 typedef PhotoUrlResolver = Future<String?> Function(String storagePath);
@@ -197,6 +204,38 @@ class LocalIncidentRepository implements IncidentRepository {
         row: {
           'recommendation_id': recommendationId,
           'farmer_id': _farmerId,
+          'confirmed_at': _clock().toUtc().toIso8601String(),
+        },
+      );
+      return const Result.ok(null);
+    } on Exception catch (error) {
+      return Result.error(error);
+    }
+  }
+
+  @override
+  Future<Result<void>> confirmVisitAttendance(
+    String assistanceId, {
+    required bool arrived,
+  }) async {
+    try {
+      final assistance = await _store.get('technical_assistance', assistanceId);
+      if (assistance == null || assistance['farmer_id'] != _farmerId) {
+        return const Result.error(IncidentException(IncidentFailure.storage));
+      }
+      final already = await _store.list(
+        'visit_attendance_confirmations',
+        where: (c) => c['assistance_id'] == assistanceId,
+      );
+      if (already.isNotEmpty) return const Result.ok(null);
+      await _store.save(
+        table: 'visit_attendance_confirmations',
+        id: _store.newId(),
+        op: SyncOp.batch,
+        row: {
+          'assistance_id': assistanceId,
+          'farmer_id': _farmerId,
+          'arrived': arrived,
           'confirmed_at': _clock().toUtc().toIso8601String(),
         },
       );

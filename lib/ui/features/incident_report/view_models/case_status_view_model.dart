@@ -47,6 +47,12 @@ class CaseStatusViewModel extends ChangeNotifier {
   Future<Result<void>> confirmRecommendation(String recommendationId) =>
       _repository.confirmRecommendation(recommendationId);
 
+  /// The farmer says whether the technician arrived; saved on the device.
+  Future<Result<void>> confirmVisitAttendance(
+    String assistanceId, {
+    required bool arrived,
+  }) => _repository.confirmVisitAttendance(assistanceId, arrived: arrived);
+
   @override
   void dispose() {
     unawaited(_subscription.cancel());
