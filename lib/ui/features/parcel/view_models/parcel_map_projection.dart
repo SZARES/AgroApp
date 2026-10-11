@@ -8,7 +8,13 @@ typedef ParcelMapData = ({List<MapFieldShape> fields, List<MapPin> pins});
 /// Places the parcels on the map by their polygon or, as fallback, their
 /// center point. Parcels without any coordinates are left out. Open problems
 /// become pins on their parcel.
-ParcelMapData projectParcels(List<Parcel> parcels) {
+///
+/// With [caseByParcel] (parcel id -> case id) pins come from that map instead
+/// and carry the case id, so a tap can open the case.
+ParcelMapData projectParcels(
+  List<Parcel> parcels, {
+  Map<String, String>? caseByParcel,
+}) {
   final fields = <MapFieldShape>[];
   final pins = <MapPin>[];
   for (final parcel in parcels) {
@@ -20,7 +26,10 @@ ParcelMapData projectParcels(List<Parcel> parcels) {
     fields.add(
       MapFieldShape(name: parcel.name, center: center, outline: outline),
     );
-    if (parcel.openIncidents > 0) pins.add(MapPin(position: center));
+    final caseId = caseByParcel?[parcel.id];
+    if (caseByParcel != null ? caseId != null : parcel.openIncidents > 0) {
+      pins.add(MapPin(position: center, id: caseId));
+    }
   }
   return (fields: fields, pins: pins);
 }

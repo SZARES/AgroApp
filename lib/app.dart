@@ -5,10 +5,12 @@ import 'data/repositories/home_repository.dart';
 import 'data/repositories/incident_repository.dart';
 import 'data/repositories/location_repository.dart';
 import 'data/repositories/parcel_repository.dart';
+import 'data/repositories/technician_repository.dart';
 import 'data/services/photo_service.dart';
 import 'data/sync/sync_engine.dart';
 import 'domain/models/app_user.dart';
 import 'domain/models/auth_failure.dart';
+import 'domain/models/user_role.dart';
 import 'ui/core/theme/app_theme.dart';
 import 'ui/features/auth/view_models/auth_view_model.dart';
 import 'ui/features/auth/views/auth_gate.dart';
@@ -27,6 +29,9 @@ import 'ui/features/parcel/view_models/add_parcel_view_model.dart';
 import 'ui/features/parcel/view_models/parcel_view_model.dart';
 import 'ui/features/parcel/views/parcel_view.dart';
 import 'ui/features/login/views/login_view.dart';
+import 'ui/features/technician/view_models/technician_case_view_model.dart';
+import 'ui/features/technician/view_models/technician_cases_view_model.dart';
+import 'ui/features/technician/views/technician_case_detail_view.dart';
 import 'ui/features/technician/views/technician_home_view.dart';
 import 'ui/features/welcome/views/welcome_view.dart';
 
@@ -47,10 +52,27 @@ class AgroApp extends StatelessWidget {
             signedOutBuilder: (_) => const _Welcome(),
             farmerBuilder: (_, user, onSignOut) =>
                 _FarmerHome(user: user, onSignOut: onSignOut),
-            technicianMobileBuilder: (_, _, onSignOut) =>
-                TechnicianHomeView(onSignOut: onSignOut),
-            consoleBuilder: (_, user, onSignOut) =>
-                ConsoleView(user: user, onSignOut: onSignOut),
+            technicianMobileBuilder: (_, user, onSignOut) => _TechnicianScope(
+              key: ValueKey(user.id),
+              user: user,
+              child: Builder(
+                builder: (context) {
+                  final repository = context.read<TechnicianRepository>();
+                  return TechnicianHomeView(
+                    viewModel: context.read<TechnicianCasesViewModel>(),
+                    caseBuilder: (id) =>
+                        _TechnicianCaseScreen(repository: repository, caseId: id),
+                    onSignOut: onSignOut,
+                  );
+                },
+              ),
+            ),
+            consoleBuilder: (_, user, onSignOut) {
+              final console = ConsoleView(user: user, onSignOut: onSignOut);
+              return user.role == UserRole.technician
+                  ? _TechnicianScope(key: ValueKey(user.id), user: user, child: console)
+                  : console;
+            },
           );
         },
       ),
@@ -266,6 +288,54 @@ class _CaseScreen extends StatelessWidget {
           CaseStatusViewModel(repository: repository, incidentId: incidentId),
       builder: (context, _) =>
           CaseStatusView(viewModel: context.read<CaseStatusViewModel>()),
+    );
+  }
+}
+
+/// Technician data for the signed-in technician, shared by the phone screens
+/// and the web console.
+class _TechnicianScope extends StatelessWidget {
+  const _TechnicianScope({super.key, required this.user, required this.child});
+
+  final AppUser user;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        Provider<TechnicianRepository>(
+          create: (context) => LocalTechnicianRepository(
+            store: context.read(),
+            technicianId: user.id,
+            photoUrlResolver: context.read<SyncEngine>().signedPhotoUrl,
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => TechnicianCasesViewModel(
+            repository: context.read<TechnicianRepository>(),
+          ),
+        ),
+      ],
+      child: child,
+    );
+  }
+}
+
+class _TechnicianCaseScreen extends StatelessWidget {
+  const _TechnicianCaseScreen({required this.repository, required this.caseId});
+
+  final TechnicianRepository repository;
+  final String caseId;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) =>
+          TechnicianCaseViewModel(repository: repository, caseId: caseId),
+      builder: (context, _) => TechnicianCaseDetailView(
+        viewModel: context.read<TechnicianCaseViewModel>(),
+      ),
     );
   }
 }

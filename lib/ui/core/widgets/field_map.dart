@@ -37,9 +37,12 @@ class MapFieldShape {
 /// An incident pin at its real coordinates.
 @immutable
 class MapPin {
-  const MapPin({required this.position, this.resolved = false});
+  const MapPin({required this.position, this.resolved = false, this.id});
 
   final GeoPoint position;
+
+  /// Identifies the pin in [FieldMap.onPinTap]; null for pins that do nothing.
+  final String? id;
 
   /// Resolved incidents are drawn muted so open ones stand out.
   final bool resolved;
@@ -48,10 +51,11 @@ class MapPin {
   bool operator ==(Object other) =>
       other is MapPin &&
       other.position == position &&
-      other.resolved == resolved;
+      other.resolved == resolved &&
+      other.id == id;
 
   @override
-  int get hashCode => Object.hash(position, resolved);
+  int get hashCode => Object.hash(position, resolved, id);
 }
 
 const _accent = Color(0xFFF0701E);
@@ -80,6 +84,7 @@ class FieldMap extends StatefulWidget {
     required this.fields,
     this.pins = const [],
     this.onAddField,
+    this.onPinTap,
     this.showIncidentSummary = true,
     this.height = 360,
   });
@@ -87,6 +92,9 @@ class FieldMap extends StatefulWidget {
   final List<MapFieldShape> fields;
   final List<MapPin> pins;
   final VoidCallback? onAddField;
+
+  /// Called with the id of a tapped pin that has one.
+  final ValueChanged<String>? onPinTap;
   final bool showIncidentSummary;
   final double height;
 
@@ -193,7 +201,12 @@ class _FieldMapState extends State<FieldMap> {
                           width: 28,
                           height: 28,
                           alignment: Alignment.topRight,
-                          child: _PinMarker(resolved: pin.resolved),
+                          child: _PinMarker(
+                            resolved: pin.resolved,
+                            onTap: pin.id == null || widget.onPinTap == null
+                                ? null
+                                : () => widget.onPinTap!(pin.id!),
+                          ),
                         ),
                     ],
                   ),
@@ -397,13 +410,14 @@ class _FieldMarker extends StatelessWidget {
 }
 
 class _PinMarker extends StatelessWidget {
-  const _PinMarker({required this.resolved});
+  const _PinMarker({required this.resolved, this.onTap});
 
   final bool resolved;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final marker = Container(
       width: 28,
       height: 28,
       decoration: BoxDecoration(
@@ -419,6 +433,12 @@ class _PinMarker extends StatelessWidget {
         ],
       ),
       child: const Icon(Icons.priority_high, size: 16, color: Colors.white),
+    );
+    if (onTap == null) return marker;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Semantics(button: true, label: 'Abrir caso', child: marker),
     );
   }
 }

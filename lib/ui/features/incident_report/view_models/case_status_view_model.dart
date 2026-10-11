@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../data/repositories/incident_repository.dart';
 import '../../../../domain/models/incident.dart';
+import '../../../../utils/result.dart';
 
 /// One report with its history and photos, read from the local replica.
 class CaseStatusViewModel extends ChangeNotifier {
@@ -41,6 +42,16 @@ class CaseStatusViewModel extends ChangeNotifier {
   /// Signed URL for a photo that is not on this device.
   Future<String?> photoUrl(String storagePath) =>
       _repository.photoUrl(storagePath);
+
+  /// The farmer applied a recommendation; saved on the device, sent later.
+  Future<Result<void>> confirmRecommendation(String recommendationId) =>
+      _repository.confirmRecommendation(recommendationId);
+
+  /// The farmer says whether the technician arrived; saved on the device.
+  Future<Result<void>> confirmVisitAttendance(
+    String assistanceId, {
+    required bool arrived,
+  }) => _repository.confirmVisitAttendance(assistanceId, arrived: arrived);
 
   @override
   void dispose() {

@@ -3,6 +3,7 @@ import '../../domain/models/incident_status.dart';
 import '../../domain/models/sync_op.dart';
 import '../../utils/result.dart';
 import '../sync/sync_engine.dart' show localPathKey;
+import 'case_reader.dart';
 import 'local_store.dart';
 import 'replica_watch.dart';
 
@@ -26,6 +27,17 @@ abstract class IncidentRepository {
 
   /// Short-lived URL to read a private photo, or null when unavailable.
   Future<String?> photoUrl(String storagePath);
+
+  /// Records that the farmer applied a recommendation (saved on the device,
+  /// uploaded later).
+  Future<Result<void>> confirmRecommendation(String recommendationId);
+
+  /// Records whether the technician arrived to the visit (saved on the
+  /// device, uploaded later). A visit is answered once.
+  Future<Result<void>> confirmVisitAttendance(
+    String assistanceId, {
+    required bool arrived,
+  });
 }
 
 typedef PhotoUrlResolver = Future<String?> Function(String storagePath);
@@ -39,18 +51,13 @@ class LocalIncidentRepository implements IncidentRepository {
   }) : _store = store,
        _farmerId = farmerId,
        _photoUrl = photoUrlResolver,
+       _reader = CaseReader(store),
        _clock = clock ?? DateTime.now;
 
-  static const _tables = [
-    'incidents',
-    'incident_photos',
-    'incident_status_history',
-    'symptom_types',
-    'parcels',
-    'profiles',
-  ];
+  static const _tables = [...caseDetailTables, 'symptom_types', 'parcels'];
 
   final LocalStore _store;
+  final CaseReader _reader;
   final String _farmerId;
   final PhotoUrlResolver _photoUrl;
   final DateTime Function() _clock;
@@ -175,6 +182,69 @@ class LocalIncidentRepository implements IncidentRepository {
   @override
   Future<String?> photoUrl(String storagePath) => _photoUrl(storagePath);
 
+  @override
+  Future<Result<void>> confirmRecommendation(String recommendationId) async {
+    try {
+      final recommendation = await _store.get(
+        'recommendations',
+        recommendationId,
+      );
+      if (recommendation == null || recommendation['farmer_id'] != _farmerId) {
+        return const Result.error(IncidentException(IncidentFailure.storage));
+      }
+      final already = await _store.list(
+        'recommendation_confirmations',
+        where: (c) => c['recommendation_id'] == recommendationId,
+      );
+      if (already.isNotEmpty) return const Result.ok(null);
+      await _store.save(
+        table: 'recommendation_confirmations',
+        id: _store.newId(),
+        op: SyncOp.batch,
+        row: {
+          'recommendation_id': recommendationId,
+          'farmer_id': _farmerId,
+          'confirmed_at': _clock().toUtc().toIso8601String(),
+        },
+      );
+      return const Result.ok(null);
+    } on Exception catch (error) {
+      return Result.error(error);
+    }
+  }
+
+  @override
+  Future<Result<void>> confirmVisitAttendance(
+    String assistanceId, {
+    required bool arrived,
+  }) async {
+    try {
+      final assistance = await _store.get('technical_assistance', assistanceId);
+      if (assistance == null || assistance['farmer_id'] != _farmerId) {
+        return const Result.error(IncidentException(IncidentFailure.storage));
+      }
+      final already = await _store.list(
+        'visit_attendance_confirmations',
+        where: (c) => c['assistance_id'] == assistanceId,
+      );
+      if (already.isNotEmpty) return const Result.ok(null);
+      await _store.save(
+        table: 'visit_attendance_confirmations',
+        id: _store.newId(),
+        op: SyncOp.batch,
+        row: {
+          'assistance_id': assistanceId,
+          'farmer_id': _farmerId,
+          'arrived': arrived,
+          'confirmed_at': _clock().toUtc().toIso8601String(),
+        },
+      );
+      return const Result.ok(null);
+    } on Exception catch (error) {
+      return Result.error(error);
+    }
+  }
+
   Future<List<IncidentSummary>> _loadSummaries() async {
     final rows = await _store.list(
       'incidents',
@@ -191,50 +261,16 @@ class LocalIncidentRepository implements IncidentRepository {
     final row = await _store.get('incidents', id);
     if (row == null || row['deleted_at'] != null) return null;
 
-    final history = await _store.list(
-      'incident_status_history',
-      where: (r) => r['incident_id'] == id,
-    );
-    history.sort(
-      (a, b) =>
-          '${a['changed_at'] ?? ''}'.compareTo('${b['changed_at'] ?? ''}'),
-    );
-    final entries = <IncidentHistoryEntry>[];
-    for (final h in history) {
-      final status = IncidentStatus.tryParse(h['new_status']);
-      if (status == null) continue;
-      entries.add(
-        IncidentHistoryEntry(
-          status: status,
-          changedAt: _date(h['changed_at']),
-          changedByName: await _profileName(h['changed_by']),
-          comment: _nonEmpty(h['comment']),
-        ),
-      );
-    }
-
-    final photoRows = await _store.list(
-      'incident_photos',
-      where: (r) => r['incident_id'] == id,
-    );
-    photoRows.sort(
-      (a, b) =>
-          '${a['created_at'] ?? ''}'.compareTo('${b['created_at'] ?? ''}'),
-    );
-    final photos = [
-      for (final p in photoRows)
-        IncidentPhotoInfo(
-          id: '${p['id']}',
-          storagePath: '${p['storage_path']}',
-          localPath: _nonEmpty(p[localPathKey]),
-        ),
-    ];
+    final entries = await _reader.history(id);
+    final photos = await _reader.photos(id);
 
     return IncidentDetail(
       summary: await _summary(row),
       description: _nonEmpty(row['description']),
       history: entries,
       photos: photos,
+      recommendations: await _reader.recommendations(id),
+      visit: await _reader.visit(id),
     );
   }
 
@@ -275,12 +311,6 @@ class LocalIncidentRepository implements IncidentRepository {
       where: (r) => r['active'] != false,
     );
     return crops.length == 1 ? crops.first['id'] : null;
-  }
-
-  Future<String?> _profileName(Object? id) async {
-    if (id is! String) return null;
-    final profile = await _store.get('profiles', id);
-    return _nonEmpty(profile?['full_name']);
   }
 
   static int _int(Object? v) => v is num ? v.toInt() : 0;

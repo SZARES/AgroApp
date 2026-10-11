@@ -3,8 +3,6 @@ library;
 
 enum FieldStatus { good, review, pending }
 
-enum CaseStatus { reported, underReview, visitScheduled, attended, closed }
-
 class MockField {
   const MockField({
     required this.name,
@@ -56,26 +54,6 @@ class MockAssistance {
   final List<MockRecommendation> recommendations;
 }
 
-class MockTechnicianCase {
-  const MockTechnicianCase({
-    required this.id,
-    required this.farmer,
-    required this.field,
-    required this.problem,
-    required this.status,
-    required this.urgent,
-  });
-
-  final String id;
-  final String farmer;
-  final String field;
-  final String problem;
-  final CaseStatus status;
-  final bool urgent;
-}
-
-const mockFarmerName = 'Rosa';
-
 const mockFields = [
   MockField(
     name: 'Campo del pozo',
@@ -96,9 +74,6 @@ const mockFields = [
     status: FieldStatus.pending,
   ),
 ];
-
-double get mockTotalHectares =>
-    mockFields.fold(0, (total, field) => total + field.hectares);
 
 const mockActivities = [
   MockActivity(
@@ -146,39 +121,3 @@ const mockAssistances = [
     ],
   ),
 ];
-
-const mockTechnicianCases = [
-  MockTechnicianCase(
-    id: 'C-014',
-    farmer: 'Rosa Quispe',
-    field: 'Campo de la quebrada',
-    problem: 'Plaga en las hojas',
-    status: CaseStatus.reported,
-    urgent: true,
-  ),
-  MockTechnicianCase(
-    id: 'C-015',
-    farmer: 'Julio Chávez',
-    field: 'Campo del cerro',
-    problem: 'Hojas amarillas',
-    status: CaseStatus.underReview,
-    urgent: false,
-  ),
-  MockTechnicianCase(
-    id: 'C-011',
-    farmer: 'Marta Vásquez',
-    field: 'Campo del pozo',
-    problem: 'Falta de agua',
-    status: CaseStatus.visitScheduled,
-    urgent: false,
-  ),
-];
-
-/// Labels in the incident lifecycle order (`reported` → `closed`).
-const caseStatusLabels = {
-  CaseStatus.reported: 'Reportado',
-  CaseStatus.underReview: 'En revisión',
-  CaseStatus.visitScheduled: 'Visita programada',
-  CaseStatus.attended: 'Atendido',
-  CaseStatus.closed: 'Cerrado',
-};

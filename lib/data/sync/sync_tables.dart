@@ -80,6 +80,8 @@ abstract final class SyncTables {
     SyncTable('assistance_documents'),
     SyncTable('recommendations'),
     SyncTable('recommendation_confirmations'),
+    SyncTable('recommendation_followups'),
+    SyncTable('visit_attendance_confirmations'),
     SyncTable('reminders'),
     SyncTable('harvests'),
     SyncTable('surplus_sales'),
@@ -99,6 +101,7 @@ abstract final class SyncTables {
     'recommendation_confirmations',
     'technical_assistance',
     'assistance_documents',
+    'visit_attendance_confirmations',
   };
 
   /// Tables intentionally not replicated: audit_logs, sync_log, device_tokens.

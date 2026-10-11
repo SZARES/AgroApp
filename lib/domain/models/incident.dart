@@ -135,6 +135,65 @@ class IncidentHistoryEntry {
   final String? comment;
 }
 
+/// A recommendation the technician left on a case.
+@immutable
+class CaseRecommendation {
+  const CaseRecommendation({
+    required this.id,
+    required this.description,
+    required this.isConfirmed,
+    this.dueDate,
+    this.createdAt,
+    this.isPending = false,
+    this.followed,
+  });
+
+  final String id;
+  final String description;
+
+  /// The technician's mark: true followed, false not followed, null unmarked.
+  final bool? followed;
+
+  /// True once a confirmation (farmer or technician) exists.
+  final bool isConfirmed;
+  final DateTime? dueDate;
+  final DateTime? createdAt;
+
+  /// True while the recommendation or its confirmation is not on the server.
+  final bool isPending;
+}
+
+/// The farmer's answer to "did the technician arrive?".
+@immutable
+class VisitAttendance {
+  const VisitAttendance({required this.arrived, this.isPending = false});
+
+  final bool arrived;
+
+  /// True while the answer is not on the server yet.
+  final bool isPending;
+}
+
+/// A visit of the technician on a case: scheduled or already done.
+@immutable
+class CaseVisit {
+  const CaseVisit({
+    required this.date,
+    this.comment,
+    this.assistanceId,
+    this.isCompleted = false,
+    this.attendance,
+  });
+
+  final DateTime date;
+  final String? comment;
+
+  /// The assistance row the farmer's attendance answer hangs from.
+  final String? assistanceId;
+  final bool isCompleted;
+  final VisitAttendance? attendance;
+}
+
 @immutable
 class IncidentDetail {
   const IncidentDetail({
@@ -142,6 +201,8 @@ class IncidentDetail {
     required this.description,
     required this.history,
     required this.photos,
+    this.recommendations = const [],
+    this.visit,
   });
 
   final IncidentSummary summary;
@@ -150,4 +211,8 @@ class IncidentDetail {
   /// Oldest first.
   final List<IncidentHistoryEntry> history;
   final List<IncidentPhotoInfo> photos;
+  final List<CaseRecommendation> recommendations;
+
+  /// Next scheduled visit, when there is one.
+  final CaseVisit? visit;
 }
