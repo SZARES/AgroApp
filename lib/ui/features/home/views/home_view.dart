@@ -77,10 +77,10 @@ class HomeView extends StatelessWidget {
               onPressed: () => _open(context, const HarvestView()),
             ),
             const SizedBox(height: 16),
-            PrimaryActionButton(
-              label: 'Mis asistencias',
-              icon: Icons.groups_outlined,
+            OutlinedButton.icon(
               onPressed: () => _open(context, const AssistanceView()),
+              icon: const Icon(Icons.groups_outlined, size: 28),
+              label: const Text('Mis asistencias'),
             ),
           ],
         ),
