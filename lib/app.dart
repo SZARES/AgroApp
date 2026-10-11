@@ -63,6 +63,7 @@ class AgroApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'AgroApp',
       theme: AppTheme.light(),
       home: Builder(
