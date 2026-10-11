@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'data/repositories/home_repository.dart';
+import 'data/repositories/location_repository.dart';
 import 'data/repositories/parcel_repository.dart';
 import 'domain/models/app_user.dart';
 import 'domain/models/auth_failure.dart';
@@ -177,10 +178,10 @@ class _ParcelScreen extends StatelessWidget {
       create: (_) => ParcelViewModel(repository: repository),
       builder: (context, _) => ParcelView(
         viewModel: context.read<ParcelViewModel>(),
-        // Device GPS needs a location plugin; until then the land is saved
-        // without coordinates.
-        addParcelViewModelBuilder: () =>
-            AddParcelViewModel(repository: repository),
+        addParcelViewModelBuilder: () => AddParcelViewModel(
+          repository: repository,
+          locationRepository: context.read<LocationRepository>(),
+        ),
       ),
     );
   }
