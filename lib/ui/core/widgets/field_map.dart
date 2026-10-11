@@ -85,6 +85,7 @@ class FieldMap extends StatefulWidget {
     this.pins = const [],
     this.onAddField,
     this.onPinTap,
+    this.onMapTap,
     this.showIncidentSummary = true,
     this.height = 360,
   });
@@ -95,6 +96,9 @@ class FieldMap extends StatefulWidget {
 
   /// Called with the id of a tapped pin that has one.
   final ValueChanged<String>? onPinTap;
+
+  /// Called when the user taps the map (e.g. to place / move a pin).
+  final ValueChanged<GeoPoint>? onMapTap;
   final bool showIncidentSummary;
   final double height;
 
@@ -129,14 +133,16 @@ class _FieldMapState extends State<FieldMap> {
     for (final pin in widget.pins) _latLng(pin.position),
   ];
 
+  LatLng get _fallbackCenter =>
+      const LatLng(mapDefaultLatitude, mapDefaultLongitude);
+
   CameraFit get _cameraFit => CameraFit.coordinates(
-    coordinates: _allPoints,
+    coordinates: _allPoints.isEmpty ? [_fallbackCenter] : _allPoints,
     padding: const EdgeInsets.all(56),
     maxZoom: 17,
   );
 
   void _fitAll() {
-    if (_allPoints.isEmpty) return;
     _controller.fitCamera(_cameraFit);
   }
 
@@ -149,7 +155,7 @@ class _FieldMapState extends State<FieldMap> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final points = _allPoints;
-    if (points.isEmpty) return const SizedBox.shrink();
+    final single = points.length == 1;
 
     return SizedBox(
       height: widget.height,
@@ -161,16 +167,27 @@ class _FieldMapState extends State<FieldMap> {
               child: FlutterMap(
                 mapController: _controller,
                 options: MapOptions(
-                  initialCameraFit: _cameraFit,
+                  initialCenter: single ? points.first : _fallbackCenter,
+                  initialZoom: single ? 17 : (points.isEmpty ? 13 : 12),
+                  initialCameraFit: points.length > 1 ? _cameraFit : null,
                   maxZoom: mapMaxZoom,
                   backgroundColor: _basemapFallback,
                   interactionOptions: const InteractionOptions(
                     flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                   ),
+                  onTap: widget.onMapTap == null
+                      ? null
+                      : (_, point) => widget.onMapTap!(
+                          GeoPoint(
+                            latitude: point.latitude,
+                            longitude: point.longitude,
+                          ),
+                        ),
                 ),
                 children: [
                   TileLayer(
                     urlTemplate: mapTileUrl,
+                    subdomains: mapTileSubdomains,
                     userAgentPackageName: mapUserAgentPackageName,
                     maxNativeZoom: mapMaxZoom.toInt(),
                   ),
@@ -213,6 +230,15 @@ class _FieldMapState extends State<FieldMap> {
                 ],
               ),
             ),
+            if (widget.onMapTap != null && widget.fields.isEmpty)
+              const Center(
+                child: Icon(
+                  Icons.add_location_alt,
+                  size: 40,
+                  color: _accent,
+                  shadows: [Shadow(color: Color(0x80000000), blurRadius: 6)],
+                ),
+              ),
             const Positioned(left: 0, bottom: 0, child: _Attribution()),
             if (widget.onAddField != null)
               Positioned(

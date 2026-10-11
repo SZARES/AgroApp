@@ -1,12 +1,19 @@
-/// Satellite basemap tiles (Esri World Imagery); no API key needed.
+/// Google satellite basemap tiles (no Maps SDK key required for tile URLs).
 const mapTileUrl =
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
 
-/// Credit the tile provider requires on every map.
-const mapTileAttribution = 'Esri, Maxar, Earthstar Geographics';
+/// Google tile host shards.
+const mapTileSubdomains = ['0', '1', '2', '3'];
+
+/// Credit shown on every map.
+const mapTileAttribution = 'Google';
 
 /// Sent with tile requests so the provider can identify the app.
 const mapUserAgentPackageName = 'com.example.hackathon';
 
 /// Closest zoom the imagery is requested at.
-const mapMaxZoom = 18.0;
+const mapMaxZoom = 20.0;
+
+/// Piura city centre — default when the farmer has not picked a point yet.
+const mapDefaultLatitude = -5.19449;
+const mapDefaultLongitude = -80.63282;

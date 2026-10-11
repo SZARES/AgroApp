@@ -30,6 +30,7 @@ void main() {
           addParcelViewModelBuilder: () => AddParcelViewModel(
             repository: repository,
             locationRepository: withLocation ? FakeLocationRepository() : null,
+            placeLookup: withLocation ? FakePlaceLookup() : null,
           ),
         ),
       ),
@@ -120,7 +121,9 @@ void main() {
 
     await tester.tap(find.text('Usar mi ubicación'));
     await tester.pumpAndSettle();
-    expect(find.text('Ubicación guardada'), findsOneWidget);
+    expect(find.text('Ubicación lista'), findsOneWidget);
+    expect(find.text('Av. Grau'), findsOneWidget);
+    expect(find.text('Piura, Perú'), findsOneWidget);
 
     await tester.tap(find.text('Guardar terreno'));
     await tester.pumpAndSettle();

@@ -1,6 +1,6 @@
 # AgroApp — Estado actual de la implementación
 
-Documento de traspaso para un asistente de IA que retoma el proyecto. Describe **qué está construido y cómo está hoy** (2026-10-10). El contexto de producto (roles, reglas de negocio, alcance del MVP, pantallas previstas) está en [CONTEXT.md](CONTEXT.md): léelo primero y trata este archivo como su complemento técnico.
+Documento de traspaso para un asistente de IA que retoma el proyecto. Describe **qué está construido y cómo está hoy** (2026-10-11). El contexto de producto (roles, reglas de negocio, alcance del MVP, pantallas previstas) está en [CONTEXT.md](CONTEXT.md): léelo primero y trata este archivo como su complemento técnico.
 
 Convención usada aquí: "verificado" significa que se comprobó ejecutándolo o consultándolo; lo demás sale de leer el código.
 
@@ -18,7 +18,7 @@ App Flutter (móvil + web) offline-first para agricultores del bosque seco del n
 |---|---|
 | Ruta local | `C:\Users\JASM\Documents\Projects\hackathon\AgroApp` (Windows 11, PowerShell) |
 | Remoto | `github.com:SZARES/AgroApp.git` |
-| Rama de trabajo | `mockup` (último commit: `52f0466`, merge de `feat/full-supabase-app`) |
+| Rama de trabajo | `mockup` (último commit: `09bf210`, actividad/cosecha/asistencias reales; previo: `52f0466` merge de `feat/full-supabase-app`) |
 | Otras ramas | `master` (inicial), `feat/full-supabase-app` (trabajo de otro miembro del equipo, se fusiona en `mockup`) |
 | Nombre del paquete Dart | `hackathon` (los imports son `package:hackathon/...`) |
 | Application ID Android | `com.example.hackathon` |
@@ -99,13 +99,12 @@ lib/
     repositories/            Reglas de datos; la UI solo habla con estos
     sync/                    SyncEngine y registro de tablas replicadas
   ui/
-    core/                    Tema y widgets compartidos (field_map, aider_shell, ...)
+    core/                    Tema y widgets compartidos (field_map, aider_shell, step_flow, ...)
     features/<feature>/      views/ + view_models/ por funcionalidad
-    mock/mock_data.dart      Datos ficticios que aún usan algunas pantallas
   utils/result.dart          Result<T> (Ok / Error)
 ```
 
-Convenciones del código: comentarios y nombres en inglés, textos de interfaz en español; view models con `ChangeNotifier`; repositorios detrás de interfaces para poder falsearlos en tests; errores como `Result` y enums de fallo, no excepciones hacia la UI.
+Convenciones del código: comentarios y nombres en inglés, textos de interfaz en español; view models con `ChangeNotifier`; repositorios detrás de interfaces para poder falsearlos en tests; errores como `Result` y enums de fallo, no excepciones hacia la UI. `lib/ui/mock/mock_data.dart` ya no existe (eliminado en `09bf210`).
 
 ### 4.1 Offline-first
 
@@ -127,20 +126,20 @@ Convenciones del código: comentarios y nombres en inglés, textos de interfaz e
 | Funcionalidad | Estado | Notas |
 |---|---|---|
 | Bienvenida y login | Real | DNI o correo contra Supabase Auth; sesión restaurada al abrir. |
-| Inicio del agricultor | Real | Resumen desde la réplica local. Sin parcela se ocultan "Registrar actividad", "Reportar problema" y "Registrar cosecha". |
+| Inicio del agricultor | Real | Resumen desde la réplica local. Los botones de acción se muestran siempre (ya no se ocultan sin parcela); los flujos de registro exigen parcela al usarse. |
 | Mis parcelas / Agregar terreno | Real | Guarda local y sincroniza. Ubicación por GPS del dispositivo. |
 | Mapa de parcelas | Real | `flutter_map` con imágenes satelitales de Esri; ver sección 6. |
-| Reportar problema (incidencia + foto) | Real en código | Llegó en el último merge (`incident_repository`, `photo_service`). No verificado de punta a punta. |
-| Estado de un caso / Mis reportes | Real en código | Mismo merge; no verificado. |
+| Reportar problema (incidencia + foto) | Real en código | `incident_repository`, `photo_service`. No verificado de punta a punta. |
+| Estado de un caso / Mis reportes | Real en código | No verificado de punta a punta. |
 | Técnico: bandeja y detalle de casos | Real en código | `technician_repository`, `technician_workspace`. En la consola web cubre los módulos Inicio y Alertas. No verificado en pantalla. |
 | Consola: Administración | Real | Usuarios, catálogos y auditoría contra Supabase. Solo rol admin. |
 | Consola: Parcelas, Territorio, Equipo, Reportes, Calendario | Placeholder | Pantallas vacías a propósito. |
-| Registrar actividad | **Mock** | Usa `mock_data.dart`; no guarda. |
-| Registrar cosecha | **Mock** | Usa `mock_data.dart`; no guarda. |
-| Mis asistencias | **Mock** | Usa `mock_data.dart`. |
+| Registrar actividad | Real en código | `LocalActivityRepository` + `record_activity_view` / listado. Guarda en réplica local y encola outbox. No verificado E2E. |
+| Registrar cosecha | Real en código | `LocalHarvestRepository` + `record_harvest_view` / listado. Igual: local + sync. No verificado E2E. |
+| Mis asistencias | Real en código | `LocalAssistanceRepository`; listado, detalle y flujo de visita externa (`external_visit_view`). No verificado E2E. |
 | Gastos, venta de excedentes, rastrojo, recordatorios | No construido | Las tablas existen; no hay pantallas. |
 
-El equipo pidió explícitamente **no dejar datos hardcodeados**: lo que queda en `mock_data.dart` es deuda a eliminar, no un patrón a seguir.
+Providers de agricultor en [app.dart](lib/app.dart): `ActivityRepository`, `HarvestRepository`, `AssistanceRepository` además de parcela/incidencias/sync.
 
 ## 6. Mapa y ubicación
 
@@ -158,13 +157,14 @@ El equipo pidió explícitamente **no dejar datos hardcodeados**: lo que queda e
 4. **Cierre al tomar foto en "Reportar problema".** Reportado por el equipo; **sin diagnosticar**: no ocurrió en el emulador conectado y no hay registro del dispositivo donde pasó. Hipótesis no confirmada: Android mata la app mientras la cámara está abierta y el código no recupera la foto (`ImagePicker.retrieveLostData` no se usa).
 5. **Permiso INTERNET.** Faltaba en el manifiesto principal de Android (solo estaba en debug/profile); ya se agregó. Sin él, una build release no tiene red.
 6. **Peso de recursos.** `assets/images/welcome_background.png` pesa 2,4 MB y ya no lo usa la bienvenida actual (que usa `assets/bgImagenMobil.jpeg` y `assets/bgImagenWeb.jpeg`); se puede borrar.
+7. **Test de home desactualizado.** Tras `09bf210`, el inicio ya no oculta acciones sin parcela; `hides the actions that need a parcel until one exists` falla (1 de 245).
 
 ## 8. Cómo trabajar en el proyecto
 
 ```powershell
 flutter pub get
 flutter analyze          # debe quedar en "No issues found"
-flutter test             # 245 tests, todos pasan en el commit 52f0466
+flutter test             # 245 tests en 09bf210; 1 falla (ver abajo)
 flutter run -d chrome    # web (consola de técnico/supervisor/admin)
 flutter run -d <device>  # Android
 ```
@@ -173,11 +173,12 @@ flutter run -d <device>  # Android
 - Los tests usan fakes en `test/testing/` (`fakes.dart`, `home_fakes.dart`) y una base Drift en memoria; no tocan la red.
 - Los widgets con mapa se prueban sin red: las teselas fallan en silencio y el resto se dibuja.
 - `adb` no está en el PATH; está en `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe`.
+- **Test roto (verificado 2026-10-11):** `home_view_test.dart` → `hides the actions that need a parcel until one exists`. La UI ya no oculta esos botones sin parcela; el test quedó desactualizado.
 
 ## 9. Pendientes sugeridos, en orden
 
 1. Arreglar las cuatro cuentas del seed y dejar el arreglo como migración nueva (no editar `10_seed_demo.sql`, ya está aplicada).
 2. Probar de punta a punta: agricultor registra parcela con ubicación → reporta problema con foto → sincroniza → el técnico lo ve en su bandeja y en el mapa.
 3. Diagnosticar el cierre al tomar foto con el registro del dispositivo real.
-4. Conectar a datos reales "Registrar actividad", "Registrar cosecha" y "Mis asistencias", y eliminar `mock_data.dart`.
+4. Actualizar o eliminar el test de home que aún espera botones ocultos sin parcela; verificar E2E de actividad, cosecha y asistencias (código ya real).
 5. Construir los módulos de consola que hoy son placeholder.

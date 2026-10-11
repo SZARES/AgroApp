@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/parcel.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/field_map.dart';
 import '../../../core/widgets/primary_action_button.dart';
@@ -33,9 +34,7 @@ class ParcelView extends StatelessWidget {
     // The flow's state holds no subscriptions, so it is simply dropped; the
     // route may still be animating out and listening to it.
     if (saved == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Terreno guardado en su teléfono')),
-      );
+      showAppSnackBar(context, 'Terreno guardado en su teléfono');
     }
   }
 

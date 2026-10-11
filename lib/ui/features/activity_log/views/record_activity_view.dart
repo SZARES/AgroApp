@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/option_tile.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../view_models/record_activity_view_model.dart';
@@ -12,11 +13,10 @@ class RecordActivityView extends StatelessWidget {
 
   Future<void> _submit(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     if (!await viewModel.submit()) return;
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Guardado. Se enviará cuando haya señal')),
-    );
+    if (context.mounted) {
+      showAppSnackBar(context, 'Guardado');
+    }
     navigator.pop();
   }
 
@@ -38,9 +38,15 @@ class RecordActivityView extends StatelessWidget {
               : vm.hasNoParcel
               ? const FlowNotice(
                   icon: Icons.map_outlined,
+                  text: 'Primero agregue su parcela en "Mi parcela"',
+                )
+              : vm.needsCrop
+              ? const FlowNotice(
+                  icon: Icons.agriculture_outlined,
                   text:
-                      'Primero agregue su parcela en "Mi parcela". '
-                      'Su técnico registra el cultivo',
+                      'Su parcela aún no tiene un cultivo. '
+                      'Espere a que se sincronice o pida a su técnico '
+                      'que registre el cultivo',
                 )
               : vm.hasNoCatalog
               ? const FlowNotice(
@@ -50,7 +56,7 @@ class RecordActivityView extends StatelessWidget {
                       'Intente en un momento',
                 )
               : null,
-          body: vm.isLoading || vm.hasNoParcel || vm.hasNoCatalog
+          body: vm.isLoading || vm.isBlocked
               ? const SizedBox.shrink()
               : switch (vm.step) {
                   ActivityStep.parcel => _ParcelStep(viewModel: vm),

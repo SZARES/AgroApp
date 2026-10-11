@@ -119,7 +119,16 @@ abstract final class AppTheme {
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: _surfaceHigh,
+        // Lighter green so floating toasts stand out on the dark forest UI.
+        backgroundColor: Color(0xFF3D7A54),
+        contentTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        actionTextColor: Colors.white,
+        closeIconColor: Colors.white,
+        elevation: 8,
       ),
     );
   }

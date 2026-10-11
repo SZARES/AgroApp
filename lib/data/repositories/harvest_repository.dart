@@ -8,8 +8,8 @@ import 'replica_watch.dart';
 
 /// Reads and writes the farmer's harvests (with sales and residue).
 abstract class HarvestRepository {
-  /// Parcels with an active crop cycle.
-  Stream<List<CycleParcel>> watchParcels();
+  /// Farmer land ready for recording (parcel count + parcels with crop).
+  Stream<RecordLandStatus> watchLandStatus();
 
   /// Buyers and harvest units from the synced catalogs.
   Stream<HarvestCatalog> watchCatalog();
@@ -44,10 +44,10 @@ class LocalHarvestRepository implements HarvestRepository {
   final DateTime Function() _clock;
 
   @override
-  Stream<List<CycleParcel>> watchParcels() => watchDerived(
+  Stream<RecordLandStatus> watchLandStatus() => watchDerived(
     _store,
     cycleParcelTables,
-    () => loadCycleParcels(_store, _farmerId),
+    () => loadRecordLandStatus(_store, _farmerId, clock: _clock),
   );
 
   @override

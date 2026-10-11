@@ -7,6 +7,7 @@ import '../../../../data/repositories/outbox_repository.dart';
 import '../../../../data/sync/sync_engine.dart';
 import '../../../../domain/models/home_summary.dart';
 import '../../../../domain/models/sync_summary.dart';
+import '../../../../utils/result.dart';
 
 class HomeViewModel extends ChangeNotifier {
   HomeViewModel({
@@ -58,16 +59,33 @@ class HomeViewModel extends ChangeNotifier {
   bool get isSyncing => _isSyncing;
   bool _isSyncing = false;
 
-  Future<void> syncNow() async {
-    if (_isSyncing) return;
+  /// Pushes pending outbox rows. Returns a short user-facing message.
+  Future<String> syncNow() async {
+    if (_isSyncing) return 'Ya se está enviando';
     _isSyncing = true;
     notifyListeners();
 
-    await _syncEngine.syncNow(retryFailed: true);
+    final result = await _syncEngine.syncNow(retryFailed: true);
 
-    if (_isDisposed) return;
+    if (_isDisposed) return '';
     _isSyncing = false;
     notifyListeners();
+
+    return switch (result) {
+      Ok(:final value) when value.synced > 0 && value.failed > 0 =>
+        'Se enviaron ${value.synced}. Quedan pendientes',
+      Ok(:final value) when value.synced > 0 =>
+        value.synced == 1
+            ? '1 registro enviado'
+            : '${value.synced} registros enviados',
+      Ok(:final value) when value.failed > 0 && value.synced == 0 =>
+        'No se pudo enviar. Intente de nuevo en un momento',
+      Ok() when _summary.isAllSynced => 'Todo guardado',
+      Ok() when !_syncEngine.snapshot.isOnline =>
+        'Sin conexión. Se enviará cuando haya internet',
+      Ok() => 'Aún hay registros por enviar',
+      Error() => 'No se pudo enviar. Intente de nuevo en un momento',
+    };
   }
 
   /// "Rosa Maria Perez" -> "Rosa"; blank input -> "".

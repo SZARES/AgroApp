@@ -30,6 +30,29 @@ class CycleParcel {
   final String cropName;
 }
 
+/// Whether the farmer has land and whether that land already has a crop cycle
+/// ready for activities / harvests.
+@immutable
+class RecordLandStatus {
+  const RecordLandStatus({
+    required this.parcelCount,
+    required this.readyParcels,
+  });
+
+  static const empty = RecordLandStatus(parcelCount: 0, readyParcels: []);
+
+  /// All of the farmer's parcels (with or without crop).
+  final int parcelCount;
+
+  /// Parcels that already have an active crop cycle.
+  final List<CycleParcel> readyParcels;
+
+  bool get hasNoParcel => parcelCount == 0;
+
+  /// Has land, but none is ready to record work (missing crop / catalog).
+  bool get needsCrop => parcelCount > 0 && readyParcels.isEmpty;
+}
+
 /// One entry of a synced catalog (pruning type, buyer, category...).
 @immutable
 class CatalogOption {

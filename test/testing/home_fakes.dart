@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:hackathon/data/repositories/home_repository.dart';
 import 'package:hackathon/data/repositories/location_repository.dart';
 import 'package:hackathon/data/repositories/parcel_repository.dart';
+import 'package:hackathon/data/services/place_lookup.dart';
 import 'package:hackathon/domain/models/geo_point.dart';
 import 'package:hackathon/domain/models/home_summary.dart';
 import 'package:hackathon/domain/models/parcel.dart';
+import 'package:hackathon/domain/models/place_label.dart';
 import 'package:hackathon/utils/result.dart';
 
 class FakeHomeRepository implements HomeRepository {
@@ -80,4 +82,18 @@ class FakeLocationRepository implements LocationRepository {
   @override
   Future<Result<GeoPoint>> currentPosition() async =>
       result ?? const Result.ok(GeoPoint(latitude: -5.19, longitude: -80.63));
+}
+
+class FakePlaceLookup implements PlaceLookup {
+  FakePlaceLookup([this.label]);
+
+  PlaceLabel? label;
+
+  @override
+  Future<PlaceLabel?> lookup(GeoPoint point) async =>
+      label ??
+      const PlaceLabel(
+        title: 'Av. Grau',
+        subtitle: 'Piura, Perú',
+      );
 }

@@ -74,6 +74,7 @@ void main() {
       final viewModel = AddParcelViewModel(
         repository: repository,
         locationRepository: FakeLocationRepository(),
+        placeLookup: FakePlaceLookup(),
       );
       viewModel
         ..setName('Campo')
@@ -84,6 +85,7 @@ void main() {
 
       await viewModel.useDeviceLocation();
       expect(viewModel.location, isNotNull);
+      expect(viewModel.placeLabel?.title, 'Av. Grau');
       await viewModel.next();
 
       expect(viewModel.saved, isNotNull);

@@ -29,13 +29,14 @@ void main() {
     test('writes the pending replica row and the outbox record', () async {
       final id = store.newId();
 
-      await store.save(
+      final delivery = await store.save(
         table: 'activities',
         id: id,
         row: {'activity_type': 'irrigation', 'quantity': 2},
         op: SyncOp.batch,
       );
 
+      expect(delivery, SaveDelivery.queuedOffline);
       final row = await store.get('activities', id);
       expect(row, {'id': id, 'activity_type': 'irrigation', 'quantity': 2});
       expect(await store.isPending('activities', id), isTrue);
@@ -45,6 +46,78 @@ void main() {
       expect(queued.op, SyncOp.batch);
       expect(queued.tableName, 'activities');
       expect(queued.payload['quantity'], 2);
+    });
+
+    test('sends online when commit succeeds and skips the outbox', () async {
+      final onlineStore = LocalStore(database, outbox);
+      final pushed = <String>[];
+      onlineStore.attachOnlineCommit(({
+        required table,
+        required id,
+        required payload,
+        required op,
+      }) async {
+        pushed.add('$table:$id');
+        return true;
+      });
+
+      final id = onlineStore.newId();
+      final delivery = await onlineStore.save(
+        table: 'activities',
+        id: id,
+        row: {'q': 1},
+        op: SyncOp.batch,
+      );
+
+      expect(delivery, SaveDelivery.sentOnline);
+      expect(pushed, ['activities:$id']);
+      expect(await onlineStore.isPending('activities', id), isFalse);
+      expect(await outbox.pendingBatch(), isEmpty);
+    });
+
+    test('queues the outbox when the online push fails', () async {
+      final onlineStore = LocalStore(database, outbox);
+      onlineStore.attachOnlineCommit(({
+        required table,
+        required id,
+        required payload,
+        required op,
+      }) async {
+        throw StateError('offline mid-flight');
+      });
+
+      final id = onlineStore.newId();
+      final delivery = await onlineStore.save(
+        table: 'parcels',
+        id: id,
+        row: {'name': 'X'},
+        op: SyncOp.upsert,
+      );
+
+      expect(delivery, SaveDelivery.queuedOffline);
+      expect(await onlineStore.isPending('parcels', id), isTrue);
+      expect(await outbox.pendingBatch(), hasLength(1));
+    });
+
+    test('queues the outbox when commit returns false', () async {
+      final onlineStore = LocalStore(database, outbox);
+      onlineStore.attachOnlineCommit(({
+        required table,
+        required id,
+        required payload,
+        required op,
+      }) async => false);
+
+      final id = onlineStore.newId();
+      final delivery = await onlineStore.save(
+        table: 'parcels',
+        id: id,
+        row: {'name': 'Y'},
+        op: SyncOp.upsert,
+      );
+
+      expect(delivery, SaveDelivery.queuedOffline);
+      expect(await outbox.pendingBatch(), hasLength(1));
     });
 
     test('rolls back the replica when the outbox write fails', () async {

@@ -10,6 +10,7 @@ import 'data/repositories/location_repository.dart';
 import 'data/repositories/parcel_repository.dart';
 import 'data/repositories/technician_repository.dart';
 import 'data/services/photo_service.dart';
+import 'data/services/place_lookup.dart';
 import 'data/sync/sync_engine.dart';
 import 'domain/models/app_user.dart';
 import 'domain/models/activity.dart';
@@ -276,6 +277,7 @@ class _ParcelScreen extends StatelessWidget {
         addParcelViewModelBuilder: () => AddParcelViewModel(
           repository: repository,
           locationRepository: context.read<LocationRepository>(),
+          placeLookup: context.read<PlaceLookup>(),
         ),
       ),
     );

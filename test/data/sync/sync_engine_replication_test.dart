@@ -79,7 +79,7 @@ void main() {
       expect(service.upserts.single.row['id'], 'p1');
       expect(service.updates.single.id, 'i1');
       expect(service.updates.single.changes, {'status': 'closed'});
-      expect((await statuses()).values, everyElement(SyncStatus.synced));
+      expect(await statuses(), isEmpty);
       expect(await store.isPending('activities', 'a1'), isFalse);
       expect(await store.isPending('parcels', 'p1'), isFalse);
       expect(await store.isPending('incidents', 'i1'), isFalse);

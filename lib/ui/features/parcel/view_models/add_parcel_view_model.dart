@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../../data/repositories/location_repository.dart';
 import '../../../../data/repositories/parcel_repository.dart';
+import '../../../../data/services/place_lookup.dart';
 import '../../../../domain/models/geo_point.dart';
 import '../../../../domain/models/parcel.dart';
 import '../../../../domain/models/parcel_failure.dart';
+import '../../../../domain/models/place_label.dart';
 import '../../../../utils/result.dart';
 
 /// One question per screen.
@@ -26,11 +30,14 @@ class AddParcelViewModel extends ChangeNotifier {
   AddParcelViewModel({
     required ParcelRepository repository,
     LocationRepository? locationRepository,
+    PlaceLookup? placeLookup,
   }) : _repository = repository,
-       _locationRepository = locationRepository;
+       _locationRepository = locationRepository,
+       _placeLookup = placeLookup;
 
   final ParcelRepository _repository;
   final LocationRepository? _locationRepository;
+  final PlaceLookup? _placeLookup;
 
   AddParcelStep get step => _step;
   AddParcelStep _step = AddParcelStep.name;
@@ -43,6 +50,14 @@ class AddParcelViewModel extends ChangeNotifier {
 
   GeoPoint? get location => _location;
   GeoPoint? _location;
+
+  PlaceLabel? get placeLabel => _placeLabel;
+  PlaceLabel? _placeLabel;
+
+  bool get isLookingUpAddress => _isLookingUpAddress;
+  bool _isLookingUpAddress = false;
+
+  int _placeLookupGeneration = 0;
 
   AddParcelError? get error => _error;
   AddParcelError? _error;
@@ -113,19 +128,44 @@ class AddParcelViewModel extends ChangeNotifier {
     _isBusy = false;
     switch (result) {
       case Ok(:final value):
-        _location = value;
+        await _applyLocation(value);
       case Error(:final error):
         _error = switch (error) {
           LocationFailure.permissionDenied => AddParcelError.locationDenied,
           LocationFailure.serviceDisabled => AddParcelError.locationDisabled,
           _ => AddParcelError.locationUnavailable,
         };
+        notifyListeners();
     }
-    notifyListeners();
   }
 
   void clearLocation() {
+    _placeLookupGeneration++;
     _location = null;
+    _placeLabel = null;
+    _isLookingUpAddress = false;
+    notifyListeners();
+  }
+
+  /// Sets or moves the pin (GPS or tap on the map).
+  void setLocation(GeoPoint point) {
+    unawaited(_applyLocation(point));
+  }
+
+  Future<void> _applyLocation(GeoPoint point) async {
+    final generation = ++_placeLookupGeneration;
+    _location = point;
+    _placeLabel = null;
+    _error = null;
+    _isLookingUpAddress = _placeLookup != null;
+    notifyListeners();
+
+    final lookup = _placeLookup;
+    if (lookup == null) return;
+    final label = await lookup.lookup(point);
+    if (generation != _placeLookupGeneration) return;
+    _placeLabel = label;
+    _isLookingUpAddress = false;
     notifyListeners();
   }
 

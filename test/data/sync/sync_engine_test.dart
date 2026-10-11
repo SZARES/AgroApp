@@ -47,10 +47,10 @@ void main() {
     return {for (final row in rows) row.id: row};
   }
 
-  Future<void> waitForStatus(String id, SyncStatus status) {
+  Future<void> waitUntilRemoved(String id) {
     final query = database.select(database.outbox)
-      ..where((row) => row.id.equals(id) & row.syncStatus.equalsValue(status));
-    return query.watch().firstWhere((rows) => rows.isNotEmpty);
+      ..where((row) => row.id.equals(id));
+    return query.watch().firstWhere((rows) => rows.isEmpty);
   }
 
   test('does nothing while offline', () async {
@@ -106,8 +106,7 @@ void main() {
     expect(report.synced, 1);
     expect(report.failed, 1);
     final rows = await storedRows();
-    expect(rows[accepted.id]!.syncStatus, SyncStatus.synced);
-    expect(rows[accepted.id]!.attempts, 0);
+    expect(rows.containsKey(accepted.id), isFalse);
     expect(rows[rejected.id]!.syncStatus, SyncStatus.error);
     expect(rows[rejected.id]!.attempts, 1);
     expect(rows[rejected.id]!.lastError, 'Tabla no permitida: a');
@@ -142,7 +141,7 @@ void main() {
 
     await engine.syncPending();
 
-    expect((await storedRows())[record.id]!.syncStatus, SyncStatus.synced);
+    expect((await storedRows()).containsKey(record.id), isFalse);
   });
 
   test('marks records missing from the response as failed', () async {
@@ -184,7 +183,7 @@ void main() {
     expect(syncService.batches, isEmpty);
 
     connectivity.setOnline(true);
-    await waitForStatus(record.id, SyncStatus.synced);
+    await waitUntilRemoved(record.id);
 
     expect(syncService.batches, hasLength(1));
   });

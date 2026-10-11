@@ -1,4 +1,5 @@
 import '../../domain/models/record_support.dart';
+import '../../domain/models/sync_op.dart';
 import 'local_store.dart';
 
 /// Shared reads of the farm-record repositories (activities, harvests,
@@ -7,12 +8,89 @@ import 'local_store.dart';
 /// Tables [loadCycleParcels] reads.
 const cycleParcelTables = ['parcels', 'crop_cycles', 'crops'];
 
-/// The farmer's parcels that have an active crop cycle (newest planting wins),
-/// oldest parcel first.
+/// Active crop cycle for a parcel: reuses one if present, otherwise creates a
+/// default (Maíz when available) so farmers can record work right after
+/// adding land without waiting for a technician.
+Future<({String cycleId, String cropId, String cropName})?> ensureActiveCycle(
+  LocalStore store,
+  String parcelId, {
+  DateTime Function()? clock,
+}) async {
+  final cycles = await store.list(
+    'crop_cycles',
+    where: (r) => r['parcel_id'] == parcelId && r['status'] == 'active',
+  );
+  if (cycles.isNotEmpty) {
+    cycles.sort(
+      (a, b) => '${b['planting_date'] ?? ''}'.compareTo(
+        '${a['planting_date'] ?? ''}',
+      ),
+    );
+    final cycle = cycles.first;
+    final crop = await store.get('crops', '${cycle['crop_id']}');
+    return (
+      cycleId: '${cycle['id']}',
+      cropId: '${cycle['crop_id']}',
+      cropName: nonEmptyText(crop?['name']) ?? 'Cultivo',
+    );
+  }
+
+  final crops = await loadCatalogRows(store, 'crops');
+  if (crops.isEmpty) return null;
+  final crop = _defaultCrop(crops);
+  final cropId = '${crop['id']}';
+  final cycleId = store.newId();
+  final today = dateOnly(clock?.call() ?? DateTime.now());
+  await store.save(
+    table: 'crop_cycles',
+    id: cycleId,
+    op: SyncOp.upsert,
+    row: {
+      'parcel_id': parcelId,
+      'crop_id': cropId,
+      'planting_date': today,
+      'status': 'active',
+    },
+  );
+  return (
+    cycleId: cycleId,
+    cropId: cropId,
+    cropName: nonEmptyText(crop['name']) ?? 'Cultivo',
+  );
+}
+
+Map<String, dynamic> _defaultCrop(List<Map<String, dynamic>> crops) {
+  for (final crop in crops) {
+    final code = '${crop['code']}'.toLowerCase();
+    final name = '${crop['name']}'.toLowerCase();
+    if (code == 'maiz' || name.contains('maíz') || name.contains('maiz')) {
+      return crop;
+    }
+  }
+  return crops.first;
+}
+
+/// The farmer's parcels with an active crop cycle (creates a default cycle
+/// when the parcel has none). Oldest parcel first.
 Future<List<CycleParcel>> loadCycleParcels(
   LocalStore store,
-  String farmerId,
-) async {
+  String farmerId, {
+  DateTime Function()? clock,
+}) async {
+  final status = await loadRecordLandStatus(
+    store,
+    farmerId,
+    clock: clock,
+  );
+  return status.readyParcels;
+}
+
+/// Parcel count + ready parcels (with crop), for accurate empty-state copy.
+Future<RecordLandStatus> loadRecordLandStatus(
+  LocalStore store,
+  String farmerId, {
+  DateTime Function()? clock,
+}) async {
   final parcels = await store.list(
     'parcels',
     where: (r) => r['farmer_id'] == farmerId && r['active'] != false,
@@ -21,31 +99,25 @@ Future<List<CycleParcel>> loadCycleParcels(
     (a, b) =>
         '${a['created_at'] ?? '~'}'.compareTo('${b['created_at'] ?? '~'}'),
   );
-  final result = <CycleParcel>[];
+  final ready = <CycleParcel>[];
   for (final parcel in parcels) {
-    final cycles = await store.list(
-      'crop_cycles',
-      where: (r) => r['parcel_id'] == parcel['id'] && r['status'] == 'active',
+    final cycle = await ensureActiveCycle(
+      store,
+      '${parcel['id']}',
+      clock: clock,
     );
-    if (cycles.isEmpty) continue;
-    cycles.sort(
-      (a, b) => '${b['planting_date'] ?? ''}'.compareTo(
-        '${a['planting_date'] ?? ''}',
-      ),
-    );
-    final cycle = cycles.first;
-    final crop = await store.get('crops', '${cycle['crop_id']}');
-    result.add(
+    if (cycle == null) continue;
+    ready.add(
       CycleParcel(
         id: '${parcel['id']}',
         name: '${parcel['name']}',
-        cropCycleId: '${cycle['id']}',
-        cropId: '${cycle['crop_id']}',
-        cropName: nonEmptyText(crop?['name']) ?? 'Cultivo',
+        cropCycleId: cycle.cycleId,
+        cropId: cycle.cropId,
+        cropName: cycle.cropName,
       ),
     );
   }
-  return result;
+  return RecordLandStatus(parcelCount: parcels.length, readyParcels: ready);
 }
 
 /// Active rows of a catalog table in display order.

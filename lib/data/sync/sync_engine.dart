@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../domain/models/outbox_record.dart';
 import '../../domain/models/sync_op.dart';
+import '../../domain/models/sync_status.dart';
 import '../../domain/models/sync_summary.dart';
 import '../../utils/result.dart';
 import '../repositories/local_store.dart';
@@ -64,6 +65,7 @@ class SyncEngine {
   StreamSubscription<bool>? _subscription;
   Timer? _timer;
   bool _isRunning = false;
+  Completer<void>? _runningCompleter;
   DateTime? _lastPullAt;
   int _generation = 0;
 
@@ -78,6 +80,8 @@ class SyncEngine {
   /// and again whenever the device comes back online.
   Future<void> start() async {
     if (_subscription != null) return;
+    // Online-first writes: LocalStore tries the server before the outbox.
+    _localStore.attachOnlineCommit(tryCommitNow);
     _subscription = _connectivity.onStatusChange.listen((online) {
       _emit(_snapshot.copyWith(isOnline: online));
       if (online) unawaited(syncNow(retryFailed: true, forcePull: true));
@@ -85,6 +89,61 @@ class SyncEngine {
     await _repository.requeueInterrupted();
     _timer = Timer.periodic(tickInterval, (_) => unawaited(syncNow()));
     unawaited(syncNow(forcePull: true));
+  }
+
+  /// Sends one write immediately (no outbox). Used so farmers do not wait for
+  /// the periodic sync tick. Does not trust connectivity probes alone —
+  /// attempts the HTTP push and lets failures fall back to the outbox.
+  Future<bool> tryCommitNow({
+    required String table,
+    required String id,
+    required Map<String, dynamic> payload,
+    required SyncOp op,
+  }) async {
+    final now = _clock();
+    var record = OutboxRecord(
+      id: op == SyncOp.batch ? id : _localStore.newId(),
+      tableName: table,
+      payload: payload,
+      status: SyncStatus.pending,
+      attempts: 0,
+      clientCreatedAt: now,
+      updatedAt: now,
+      op: op,
+    );
+
+    if (op == SyncOp.batch) {
+      if (!SyncTables.batchTables.contains(table)) {
+        // Not accepted by sync_batch — upsert/update instead.
+        record = record.copyWith(op: SyncOp.upsert, id: _localStore.newId());
+        await _pushSingle(await _withUploadedFile(record));
+        await _afterOnlineCommit();
+        return true;
+      }
+      final sendable = await _withUploadedFile(record);
+      final result = await _syncService.syncBatch(
+        deviceId: await _repository.deviceId(),
+        records: [sendable],
+      );
+      if (result.syncedIds.contains(sendable.id)) {
+        await _afterOnlineCommit();
+        return true;
+      }
+      final failure = result.failures.where((f) => f.id == sendable.id);
+      if (failure.isNotEmpty) {
+        throw StateError(failure.first.error);
+      }
+      throw StateError('Record missing from the sync response');
+    }
+
+    await _pushSingle(await _withUploadedFile(record));
+    await _afterOnlineCommit();
+    return true;
+  }
+
+  Future<void> _afterOnlineCommit() async {
+    _emit(_snapshot.copyWith(isOnline: true, lastSyncedAt: _clock()));
+    await _refreshCounts();
   }
 
   Future<void> dispose() async {
@@ -112,16 +171,30 @@ class SyncEngine {
     bool retryFailed = false,
     bool forcePull = false,
   }) async {
-    if (_isRunning) return const Result.ok(SyncReport());
+    // Wait for an in-flight tick instead of returning an empty no-op report
+    // (which made "Enviar ahora" look like it did nothing).
+    while (_isRunning) {
+      await (_runningCompleter?.future ?? Future<void>.value());
+    }
     _isRunning = true;
+    _runningCompleter = Completer<void>();
     _emit(_snapshot.copyWith(isSyncing: true));
     try {
+      // Rows left in `syncing` after a crash never leave the phone otherwise.
+      await _repository.requeueInterrupted();
+
       final online = await _connectivity.isOnline();
       _emit(_snapshot.copyWith(isOnline: online));
-      if (!online) return const Result.ok(SyncReport());
+      // Manual "Enviar ahora" always tries: connectivity_plus false-negatives
+      // are common on Android even when HTTP to Supabase works.
+      if (!online && !retryFailed) return const Result.ok(SyncReport());
 
       if (retryFailed) await _repository.resetAttempts();
       final pushed = await _push();
+      if (pushed is Ok<SyncReport> &&
+          (pushed.value.synced > 0 || pushed.value.failed == 0)) {
+        _emit(_snapshot.copyWith(isOnline: true));
+      }
       final report = pushed is Ok<SyncReport>
           ? pushed.value
           : const SyncReport();
@@ -137,6 +210,9 @@ class SyncEngine {
       return Result.error(_asException(error));
     } finally {
       _isRunning = false;
+      final done = _runningCompleter;
+      _runningCompleter = null;
+      done?.complete();
       await _refreshCounts(isSyncing: false);
     }
   }

@@ -59,6 +59,9 @@ void main() {
     await repository.markSyncing([second.id]);
     await repository.markFailed(third.id, 'rejected');
 
+    final remaining = await database.select(database.outbox).get();
+    expect(remaining.map((r) => r.id), isNot(contains(first.id)));
+
     final batch = await repository.pendingBatch();
     expect(batch.map((r) => r.id), unorderedEquals([third.id, fourth.id]));
     expect(await repository.pendingBatch(limit: 1), hasLength(1));
@@ -100,6 +103,8 @@ void main() {
       await repository.watchSummary().first,
       const SyncSummary(pending: 2, error: 1),
     );
+    final rows = await database.select(database.outbox).get();
+    expect(rows.map((r) => r.id), isNot(contains(synced.id)));
   });
 
   test('watchSummary reports an empty outbox as all synced', () async {

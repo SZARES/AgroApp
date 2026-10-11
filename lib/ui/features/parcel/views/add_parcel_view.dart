@@ -140,51 +140,39 @@ class _AddParcelViewState extends State<AddParcelView> {
           ),
         ];
       case AddParcelStep.location:
-        final location = vm.location;
+        final hasPin = vm.location != null;
         return [
           Text('¿Dónde está su terreno?', style: textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(
-            'Párese dentro del terreno y toque el botón.',
+            hasPin
+                ? 'Toque el mapa para mover el pin, o use su GPS.'
+                : 'Toque el mapa para poner el pin, o use su GPS.',
             style: textTheme.bodyLarge,
           ),
           const SizedBox(height: 16),
-          if (location != null) ...[
-            FieldMap(
-              fields: [
-                MapFieldShape(name: vm.name.trim(), center: location),
-              ],
-              showIncidentSummary: false,
-              height: 260,
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Color(0xFF8BD450)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Ubicación guardada',
-                        style: textTheme.bodyLarge,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: vm.clearLocation,
-                      child: const Text('Quitar'),
-                    ),
-                  ],
+          FieldMap(
+            fields: [
+              if (hasPin)
+                MapFieldShape(
+                  name: vm.name.trim().isEmpty ? 'Terreno' : vm.name.trim(),
+                  center: vm.location!,
                 ),
-              ),
-            ),
-          ] else
-            OutlinedButton.icon(
-              onPressed: vm.isBusy ? null : vm.useDeviceLocation,
-              icon: const Icon(Icons.my_location, size: 28),
-              label: const Text('Usar mi ubicación'),
-            ),
+            ],
+            showIncidentSummary: false,
+            height: 280,
+            onMapTap: vm.setLocation,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: vm.isBusy ? null : vm.useDeviceLocation,
+            icon: const Icon(Icons.my_location, size: 28),
+            label: Text(hasPin ? 'Usar mi GPS otra vez' : 'Usar mi ubicación'),
+          ),
+          if (hasPin) ...[
+            const SizedBox(height: 12),
+            _LocationReadyCard(viewModel: vm),
+          ],
         ];
     }
   }
@@ -202,8 +190,8 @@ class _AddParcelViewState extends State<AddParcelView> {
     AddParcelError.invalidName => 'Escriba el nombre del terreno',
     AddParcelError.invalidArea => 'Escriba las hectáreas con números',
     AddParcelError.noZone =>
-      'Todavía no sabemos su zona. Conéctese a internet una vez e intente '
-          'de nuevo',
+      'Aún no tenemos su zona. Espere un momento con internet y vuelva a '
+          'intentar',
     AddParcelError.saveFailed =>
       'No se pudo guardar el terreno. Intente de nuevo',
     AddParcelError.locationDenied =>
@@ -212,4 +200,123 @@ class _AddParcelViewState extends State<AddParcelView> {
     AddParcelError.locationUnavailable =>
       'No se pudo obtener la ubicación. Intente de nuevo',
   };
+}
+
+/// Compact “ubicación lista” card with address title + subtitle underneath.
+class _LocationReadyCard extends StatelessWidget {
+  const _LocationReadyCard({required this.viewModel});
+
+  final AddParcelViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colors = theme.colorScheme;
+    final label = viewModel.placeLabel;
+    final lookingUp = viewModel.isLookingUpAddress;
+    final point = viewModel.location;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle, color: Color(0xFF8BD450)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Ubicación lista',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: viewModel.clearLocation,
+                  child: const Text('Quitar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, right: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.place_outlined,
+                    size: 20,
+                    color: colors.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: lookingUp
+                        ? Row(
+                            children: [
+                              SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Buscando dirección…',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                label?.title ?? 'Punto en el mapa',
+                                style: textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.25,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                label?.hasSubtitle == true
+                                    ? label!.subtitle
+                                    : point == null
+                                    ? ''
+                                    : '${point.latitude.toStringAsFixed(5)}, '
+                                          '${point.longitude.toStringAsFixed(5)}',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                  height: 1.3,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 34, right: 8),
+              child: Text(
+                'Toque el mapa para mover el pin',
+                style: textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.85),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

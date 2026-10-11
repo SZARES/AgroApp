@@ -6,6 +6,16 @@
 	<string>Para tomar fotos del problema de su cultivo</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Para elegir fotos del problema de su cultivo</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Para guardar fotos del problema de su cultivo</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Para grabar video o audio al documentar el cultivo si usa la cámara</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Para ubicar su terreno en el mapa al registrar la parcela</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Para ubicar su terreno en el mapa al registrar la parcela</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Para ubicar su terreno en el mapa al registrar la parcela</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

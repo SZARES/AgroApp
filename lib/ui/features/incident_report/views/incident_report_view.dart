@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../data/services/photo_service.dart';
 import '../../../../domain/models/incident.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/option_tile.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../view_models/report_incident_view_model.dart';
@@ -23,13 +24,12 @@ class IncidentReportView extends StatelessWidget {
 
   Future<void> _submit(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     if (!await viewModel.submit()) return;
     final id = viewModel.savedId;
     if (id == null) return;
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Guardado. Se enviará cuando haya señal')),
-    );
+    if (context.mounted) {
+      showAppSnackBar(context, 'Guardado');
+    }
     await navigator.pushReplacement(
       MaterialPageRoute<void>(builder: (_) => caseBuilder(id)),
     );
