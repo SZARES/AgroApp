@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../data/repositories/admin_repository.dart';
+import '../../../../data/repositories/supervisor_repository.dart';
 import '../../../../data/repositories/technician_repository.dart';
 import '../../../../domain/models/app_user.dart';
 import '../../../../domain/models/user_role.dart';
 import '../../../core/widgets/aider_shell.dart';
 import '../../../core/widgets/three_panel_scaffold.dart';
 import '../../admin/views/admin_view.dart';
+import '../../supervisor/views/supervisor_dashboard_view.dart';
 import '../../technician/view_models/technician_case_view_model.dart';
 import '../../technician/view_models/technician_cases_view_model.dart';
 import '../../technician/views/technician_workspace.dart';
@@ -56,6 +58,16 @@ class _ConsoleViewState extends State<ConsoleView> {
     if (widget.user.role != UserRole.technician) return null;
     try {
       return context.read<TechnicianCasesViewModel>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  /// The supervisor's dashboard repository (supervisors only; tests may not).
+  SupervisorRepository? _supervisorRepository(BuildContext context) {
+    if (widget.user.role != UserRole.supervisor) return null;
+    try {
+      return context.read<SupervisorRepository>();
     } on ProviderNotFoundException {
       return null;
     }
@@ -113,6 +125,16 @@ class _ConsoleViewState extends State<ConsoleView> {
           alertCount: cases.openCount,
         ),
       );
+    }
+    if (module.id == ConsoleModules.home.id) {
+      final supervisorRepository = _supervisorRepository(context);
+      if (supervisorRepository != null) {
+        return SupervisorDashboardView(
+          repository: supervisorRepository,
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
     }
     return _scaffold(
       module,

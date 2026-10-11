@@ -8,13 +8,16 @@ import '../data/repositories/auth_repository.dart';
 import '../data/repositories/local_store.dart';
 import '../data/repositories/location_repository.dart';
 import '../data/repositories/outbox_repository.dart';
+import '../data/repositories/supervisor_repository.dart';
 import '../data/services/admin_service.dart';
 import '../data/services/auth_service.dart';
 import '../data/services/supabase_admin_service.dart';
 import '../data/services/connectivity_service.dart';
 import '../data/services/supabase_auth_service.dart';
+import '../data/services/supabase_supervisor_service.dart';
 import '../data/services/supabase_sync_service.dart';
 import '../data/services/photo_service.dart';
+import '../data/services/supervisor_service.dart';
 import '../data/services/sync_service.dart';
 import '../data/sync/sync_engine.dart';
 import '../ui/features/auth/view_models/auth_view_model.dart';
@@ -59,6 +62,13 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
           await context.read<SyncEngine>().syncNow(forcePull: true);
         },
       ),
+    ),
+    Provider<SupervisorService>(
+      create: (_) => SupabaseSupervisorService(supabaseClient),
+    ),
+    Provider<SupervisorRepository>(
+      create: (context) =>
+          SupabaseSupervisorRepository(service: context.read()),
     ),
     Provider<AuthRepository>(
       create: (context) => DefaultAuthRepository(
