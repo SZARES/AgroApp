@@ -1,8 +1,13 @@
 import 'dart:async';
 
+import 'package:hackathon/data/repositories/auth_repository.dart';
+import 'package:hackathon/data/services/auth_service.dart';
 import 'package:hackathon/data/services/connectivity_service.dart';
 import 'package:hackathon/data/services/sync_service.dart';
+import 'package:hackathon/domain/models/app_user.dart';
+import 'package:hackathon/domain/models/auth_failure.dart';
 import 'package:hackathon/domain/models/outbox_record.dart';
+import 'package:hackathon/utils/result.dart';
 
 typedef SyncHandler =
     FutureOr<SyncBatchResult> Function(List<OutboxRecord> records);
@@ -116,4 +121,116 @@ class FakeConnectivityService implements ConnectivityService {
   }
 
   Future<void> close() => _controller.close();
+}
+
+/// Profile row as the backend returns it.
+Map<String, dynamic> profileRow({
+  String id = 'u1',
+  String role = 'farmer',
+  String status = 'active',
+  String fullName = 'Ana Quispe',
+  String? email = 'ana@correo.pe',
+}) => {
+  'id': id,
+  'full_name': fullName,
+  'email': email,
+  'role': role,
+  'status': status,
+};
+
+class FakeAuthService implements AuthService {
+  FakeAuthService({
+    this.userId = 'u1',
+    this.password = 'secreto123',
+    Map<String, dynamic>? profile,
+    this.farmerId = 'f1',
+    this.zoneIds = const ['z1'],
+  }) : profile = profile ?? profileRow();
+
+  String userId;
+  String password;
+
+  /// Row returned by [fetchProfile]; null means "no profile".
+  Map<String, dynamic>? profile;
+  String? farmerId;
+  List<String> zoneIds;
+
+  /// Persisted session, as `restoredUserId` reports it.
+  String? sessionUserId;
+
+  /// Thrown by [signInWithPassword] / the fetch methods when set.
+  Object? signInError;
+  Object? fetchError;
+
+  int signOutCalls = 0;
+
+  @override
+  Future<String> signInWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    final error = signInError;
+    if (error != null) throw error;
+    if (password != this.password) {
+      throw const AuthFailureException(AuthFailure.invalidCredentials);
+    }
+    sessionUserId = userId;
+    return userId;
+  }
+
+  @override
+  String? restoredUserId() => sessionUserId;
+
+  @override
+  Future<void> signOut() async {
+    signOutCalls++;
+    sessionUserId = null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchProfile(String userId) async {
+    final error = fetchError;
+    if (error != null) throw error;
+    return profile;
+  }
+
+  @override
+  Future<String?> fetchFarmerId(String userId) async => farmerId;
+
+  @override
+  Future<List<String>> fetchZoneIds(String userId) async => zoneIds;
+}
+
+class FakeAuthRepository implements AuthRepository {
+  FakeAuthRepository({
+    this.signInResult,
+    this.restoreResult,
+    this.signOutResult,
+  });
+
+  Result<AppUser>? signInResult;
+  Result<AppUser?>? restoreResult;
+  Result<void>? signOutResult;
+
+  final List<({String email, String password})> signIns = [];
+  final List<bool> signOuts = [];
+
+  @override
+  Future<Result<AppUser>> signIn(String email, String password) async {
+    signIns.add((email: email, password: password));
+    return signInResult ??
+        const Result.error(
+          AuthFailureException(AuthFailure.invalidCredentials),
+        );
+  }
+
+  @override
+  Future<Result<AppUser?>> restore() async =>
+      restoreResult ?? const Result.ok(null);
+
+  @override
+  Future<Result<void>> signOut({bool force = false}) async {
+    signOuts.add(force);
+    return signOutResult ?? const Result.ok(null);
+  }
 }

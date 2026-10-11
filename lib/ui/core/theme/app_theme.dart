@@ -57,10 +57,9 @@ abstract final class AppTheme {
 
     return base.copyWith(
       scaffoldBackgroundColor: _forest,
-      textTheme: base.textTheme.merge(_textSizes).apply(
-        bodyColor: Colors.white,
-        displayColor: Colors.white,
-      ),
+      textTheme: base.textTheme
+          .merge(_textSizes)
+          .apply(bodyColor: Colors.white, displayColor: Colors.white),
       appBarTheme: const AppBarTheme(
         backgroundColor: _forest,
         foregroundColor: Colors.white,

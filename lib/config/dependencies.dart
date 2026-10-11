@@ -6,10 +6,13 @@ import '../data/local/app_database.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/local_store.dart';
 import '../data/repositories/outbox_repository.dart';
+import '../data/services/auth_service.dart';
 import '../data/services/connectivity_service.dart';
+import '../data/services/supabase_auth_service.dart';
 import '../data/services/supabase_sync_service.dart';
 import '../data/services/sync_service.dart';
 import '../data/sync/sync_engine.dart';
+import '../ui/features/auth/view_models/auth_view_model.dart';
 
 /// App-wide dependencies, in the order they depend on each other.
 List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
@@ -18,7 +21,7 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
       create: (_) => AppDatabase(),
       dispose: (_, database) => database.close(),
     ),
-    Provider<AuthRepository>(create: (_) => const MockAuthRepository()),
+    Provider<AuthService>(create: (_) => SupabaseAuthService(supabaseClient)),
     Provider<SyncService>(create: (_) => SupabaseSyncService(supabaseClient)),
     Provider<ConnectivityService>(create: (_) => DeviceConnectivityService()),
     Provider<OutboxRepository>(
@@ -36,6 +39,21 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
         connectivity: context.read(),
       )..start(),
       dispose: (_, engine) => engine.dispose(),
+    ),
+    Provider<AuthRepository>(
+      create: (context) => DefaultAuthRepository(
+        service: context.read(),
+        cache: DriftSessionCache(context.read()),
+        outbox: context.read(),
+        syncEngine: context.read(),
+      ),
+    ),
+    ChangeNotifierProvider<AuthViewModel>(
+      lazy: false,
+      create: (context) => AuthViewModel(
+        authRepository: context.read(),
+        requestSync: () => context.read<SyncEngine>().syncNow(forcePull: true),
+      )..bootstrap(),
     ),
   ];
 }

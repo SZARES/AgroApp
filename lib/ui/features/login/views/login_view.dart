@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../../domain/models/app_user.dart';
 import '../view_models/login_view_model.dart';
@@ -14,30 +13,47 @@ class LoginView extends StatefulWidget {
   final LoginViewModel viewModel;
   final ValueChanged<AppUser> onSignedIn;
 
+  /// Plain-language message for each failure; shown under the form.
+  static String messageFor(LoginError error) {
+    return switch (error) {
+      LoginError.invalidEmail =>
+        'Escriba un correo válido, por ejemplo nombre@correo.com',
+      LoginError.missingPassword => 'Escriba su contraseña',
+      LoginError.invalidCredentials =>
+        'El correo o la contraseña no son correctos',
+      LoginError.inactiveAccount =>
+        'Su cuenta está desactivada. Hable con su técnico de AIDER',
+      LoginError.noProfile =>
+        'Su cuenta todavía no está lista. Hable con su técnico de AIDER',
+      LoginError.offline =>
+        'No hay internet. Para entrar por primera vez en este equipo '
+            'necesita conexión',
+      LoginError.unknown => 'No pudimos entrar. Intente de nuevo en un momento',
+    };
+  }
+
   @override
   State<LoginView> createState() => _LoginViewState();
 }
 
 class _LoginViewState extends State<LoginView> {
-  final _dniController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscure = true;
 
   @override
   void dispose() {
-    _dniController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final user = await widget.viewModel.signIn(_dniController.text);
+    final user = await widget.viewModel.signIn(
+      _emailController.text,
+      _passwordController.text,
+    );
     if (user != null && mounted) widget.onSignedIn(user);
-  }
-
-  String? _errorText(LoginError? error) {
-    return switch (error) {
-      null => null,
-      LoginError.invalidFormat => 'El DNI debe tener 8 números',
-      LoginError.unknownDni => 'Este DNI no está registrado',
-    };
   }
 
   @override
@@ -56,51 +72,138 @@ class _LoginViewState extends State<LoginView> {
                 listenable: widget.viewModel,
                 builder: (context, _) {
                   final viewModel = widget.viewModel;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Icon(
-                        Icons.eco,
-                        size: 72,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Ingrese su DNI',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 24),
-                      TextField(
-                        controller: _dniController,
-                        autofocus: true,
-                        keyboardType: TextInputType.number,
-                        textInputAction: TextInputAction.done,
-                        textAlign: TextAlign.center,
-                        maxLength: LoginViewModel.dniLength,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        style: const TextStyle(fontSize: 32, letterSpacing: 4),
-                        decoration: InputDecoration(
-                          labelText: 'DNI',
-                          border: const OutlineInputBorder(),
-                          errorText: _errorText(viewModel.error),
-                          errorStyle: const TextStyle(fontSize: 16),
+                  final error = viewModel.error;
+                  final emailError = error == LoginError.invalidEmail;
+                  final passwordError = error == LoginError.missingPassword;
+                  final bannerError =
+                      error != null && !emailError && !passwordError;
+                  return AutofillGroup(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Icon(
+                          Icons.eco,
+                          size: 72,
+                          color: theme.colorScheme.primary,
                         ),
-                        onChanged: (_) => viewModel.clearError(),
-                        onSubmitted: (_) => _submit(),
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: viewModel.isLoading ? null : _submit,
-                        child: const Text('Ingresar'),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        Text(
+                          'Entre a su cuenta',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.headlineMedium,
+                        ),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: _emailController,
+                          autofocus: true,
+                          enabled: !viewModel.isLoading,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.username],
+                          autocorrect: false,
+                          style: const TextStyle(fontSize: 22),
+                          decoration: InputDecoration(
+                            labelText: 'Correo',
+                            prefixIcon: const Icon(Icons.mail_outline),
+                            errorText: emailError
+                                ? LoginView.messageFor(error!)
+                                : null,
+                            errorMaxLines: 3,
+                            errorStyle: const TextStyle(fontSize: 16),
+                          ),
+                          onChanged: (_) => viewModel.clearError(),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _passwordController,
+                          enabled: !viewModel.isLoading,
+                          obscureText: _obscure,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          style: const TextStyle(fontSize: 22),
+                          decoration: InputDecoration(
+                            labelText: 'Contraseña',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              tooltip: _obscure
+                                  ? 'Mostrar contraseña'
+                                  : 'Ocultar contraseña',
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
+                              icon: Icon(
+                                _obscure
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                            ),
+                            errorText: passwordError
+                                ? LoginView.messageFor(error!)
+                                : null,
+                            errorStyle: const TextStyle(fontSize: 16),
+                          ),
+                          onChanged: (_) => viewModel.clearError(),
+                          onSubmitted: (_) => _submit(),
+                        ),
+                        if (bannerError) ...[
+                          const SizedBox(height: 16),
+                          _ErrorBanner(message: LoginView.messageFor(error)),
+                        ],
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          onPressed: viewModel.isLoading ? null : _submit,
+                          child: viewModel.isLoading
+                              ? const SizedBox.square(
+                                  dimension: 28,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                  ),
+                                )
+                              : const Text('Entrar'),
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      liveRegion: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.errorContainer,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: scheme.onErrorContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: scheme.onErrorContainer,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
