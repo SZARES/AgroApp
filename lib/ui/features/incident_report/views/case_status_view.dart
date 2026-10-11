@@ -7,6 +7,7 @@ import '../../../../domain/models/incident_status.dart';
 import '../../../../utils/result.dart';
 import '../view_models/case_status_view_model.dart';
 import 'incident_status_labels.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Status of one reported problem: progress, history and photos.
 class CaseStatusView extends StatelessWidget {
@@ -24,7 +25,7 @@ class CaseStatusView extends StatelessWidget {
           appBar: AppBar(title: const Text('Estado del reporte')),
           body: SafeArea(
             child: viewModel.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const SkeletonDetail()
                 : viewModel.loadFailed
                 ? const _Message('No pudimos leer este reporte')
                 : detail == null
@@ -397,7 +398,7 @@ class _PhotoTile extends StatelessWidget {
                 builder: (context, snapshot) {
                   final url = snapshot.data;
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Skeleton(child: SkeletonBox());
                   }
                   if (url == null) {
                     return const ColoredBox(

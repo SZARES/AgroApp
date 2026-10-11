@@ -6,6 +6,7 @@ import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../../../core/widgets/stream_view_model.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Mis asistencias": every assistance of the farmer (AIDER, SENASA, other),
 /// plus the button to record an external visit.
@@ -48,9 +49,9 @@ class AssistanceView extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 if (viewModel.isLoading)
-                  const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
+                  const SizedBox(
+                    height: 280,
+                    child: SkeletonList(count: 3),
                   )
                 else if (viewModel.loadFailed)
                   Text(

@@ -51,7 +51,11 @@ import 'ui/features/parcel/views/parcel_view.dart';
 import 'ui/features/login/views/login_view.dart';
 import 'ui/features/technician/view_models/technician_case_view_model.dart';
 import 'ui/features/technician/view_models/technician_cases_view_model.dart';
+import 'ui/features/technician/view_models/technician_dashboard_view_model.dart';
+import 'ui/features/technician/view_models/technician_farmer_view_model.dart';
+import 'ui/features/technician/view_models/technician_farmers_view_model.dart';
 import 'ui/features/technician/views/technician_case_detail_view.dart';
+import 'ui/features/technician/views/technician_farmers_view.dart';
 import 'ui/features/technician/views/technician_home_view.dart';
 import 'ui/features/welcome/views/welcome_view.dart';
 
@@ -80,8 +84,14 @@ class AgroApp extends StatelessWidget {
                   final repository = context.read<TechnicianRepository>();
                   return TechnicianHomeView(
                     viewModel: context.read<TechnicianCasesViewModel>(),
+                    dashboard: context.read<TechnicianDashboardViewModel>(),
+                    farmers: context.read<TechnicianFarmersViewModel>(),
                     caseBuilder: (id) =>
                         _TechnicianCaseScreen(repository: repository, caseId: id),
+                    farmerBuilder: (id) => _TechnicianFarmerScreen(
+                      repository: repository,
+                      farmerId: id,
+                    ),
                     onSignOut: onSignOut,
                   );
                 },
@@ -461,8 +471,46 @@ class _TechnicianScope extends StatelessWidget {
             repository: context.read<TechnicianRepository>(),
           ),
         ),
+        ChangeNotifierProvider(
+          create: (context) => TechnicianDashboardViewModel(
+            repository: context.read<TechnicianRepository>(),
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => TechnicianFarmersViewModel(
+            repository: context.read<TechnicianRepository>(),
+          ),
+        ),
       ],
       child: child,
+    );
+  }
+}
+
+class _TechnicianFarmerScreen extends StatelessWidget {
+  const _TechnicianFarmerScreen({
+    required this.repository,
+    required this.farmerId,
+  });
+
+  final TechnicianRepository repository;
+  final String farmerId;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) =>
+          TechnicianFarmerViewModel(repository: repository, farmerId: farmerId),
+      builder: (context, _) => TechnicianFarmerDetailView(
+        viewModel: context.read<TechnicianFarmerViewModel>(),
+        onOpenCase: (id) => Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                _TechnicianCaseScreen(repository: repository, caseId: id),
+          ),
+        ),
+      ),
     );
   }
 }

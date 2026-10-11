@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../domain/models/parcel.dart';
 import '../../../../domain/models/technician_case.dart';
 
 /// "05/10/2026".
@@ -37,13 +38,17 @@ Future<VisitPlan?> showScheduleVisitDialog(BuildContext context) {
   );
 }
 
+/// Asks for the assistance data. With more than one of [parcels] the dialog
+/// also asks on which parcel (the draft carries it in `parcelId`); with one
+/// it is preselected silently.
 Future<AssistanceDraft?> showAssistanceDialog(
   BuildContext context, {
   required List<AssistanceCategoryOption> catalog,
+  List<Parcel> parcels = const [],
 }) {
   return showDialog<AssistanceDraft>(
     context: context,
-    builder: (_) => _AssistanceDialog(catalog: catalog),
+    builder: (_) => _AssistanceDialog(catalog: catalog, parcels: parcels),
   );
 }
 
@@ -275,9 +280,10 @@ class _RecommendationDialogState extends State<_RecommendationDialog> {
 }
 
 class _AssistanceDialog extends StatefulWidget {
-  const _AssistanceDialog({required this.catalog});
+  const _AssistanceDialog({required this.catalog, required this.parcels});
 
   final List<AssistanceCategoryOption> catalog;
+  final List<Parcel> parcels;
 
   @override
   State<_AssistanceDialog> createState() => _AssistanceDialogState();
@@ -289,6 +295,9 @@ class _AssistanceDialogState extends State<_AssistanceDialog> {
   AssistanceCategoryOption? _category;
   String? _subtypeId;
   DateTime? _nextReview;
+  late String? _parcelId = widget.parcels.isEmpty
+      ? null
+      : widget.parcels.first.id;
 
   @override
   void dispose() {
@@ -305,6 +314,7 @@ class _AssistanceDialogState extends State<_AssistanceDialog> {
         observation: _observation.text.trim(),
         recommendation: _recommendation.text.trim(),
         nextReview: _nextReview,
+        parcelId: _parcelId,
       ),
     );
   }
@@ -326,6 +336,19 @@ class _AssistanceDialogState extends State<_AssistanceDialog> {
               'Conéctese una vez para cargarlos.',
             ),
           ),
+        if (widget.parcels.length > 1) ...[
+          DropdownButtonFormField<String>(
+            initialValue: _parcelId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Parcela'),
+            items: [
+              for (final p in widget.parcels)
+                DropdownMenuItem(value: p.id, child: Text(p.name)),
+            ],
+            onChanged: (id) => setState(() => _parcelId = id),
+          ),
+          const SizedBox(height: 16),
+        ],
         DropdownButtonFormField<String>(
           initialValue: category?.id,
           isExpanded: true,

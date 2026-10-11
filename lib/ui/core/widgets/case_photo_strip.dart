@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../domain/models/incident.dart';
+import 'skeleton.dart';
 
 /// Horizontal strip of a case's photos: the device file when it still exists,
 /// otherwise a signed URL resolved by [resolveUrl].
@@ -63,7 +64,7 @@ class CasePhotoTile extends StatelessWidget {
               future: resolveUrl(photo.storagePath),
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Skeleton(child: SkeletonBox(radius: 0));
                 }
                 final url = snapshot.data;
                 if (url == null) return _missing;

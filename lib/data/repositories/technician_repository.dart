@@ -2,6 +2,7 @@ import '../../domain/models/incident_status.dart';
 import '../../domain/models/parcel.dart';
 import '../../domain/models/sync_op.dart';
 import '../../domain/models/technician_case.dart';
+import '../../domain/models/technician_farmer.dart';
 import '../../utils/result.dart';
 import 'case_reader.dart';
 import 'incident_repository.dart' show PhotoUrlResolver;
@@ -26,6 +27,16 @@ abstract class TechnicianRepository {
   /// Assistance types and subtypes from the synced catalogs.
   Stream<List<AssistanceCategoryOption>> watchAssistanceCatalog();
 
+  /// Farmers of the technician's zones (the ones present in the replica):
+  /// those with open cases first, then by name.
+  Stream<List<TechnicianFarmer>> watchFarmers();
+
+  /// The file of one farmer; emits null when the farmer is not in the replica.
+  Stream<TechnicianFarmerDetail?> watchFarmer(String farmerId);
+
+  /// Numbers of the home dashboard.
+  Stream<TechnicianKpis> watchKpis();
+
   /// reported -> under_review, assigned to the technician.
   Future<Result<void>> takeCase(String incidentId);
 
@@ -42,6 +53,14 @@ abstract class TechnicianRepository {
     String incidentId,
     AssistanceDraft draft,
   );
+
+  /// Saves an assistance given to a farmer outside any case (no incident),
+  /// with its recommendation when given.
+  Future<Result<void>> registerFieldAssistance({
+    required String farmerId,
+    String? parcelId,
+    required AssistanceDraft draft,
+  });
 
   /// Leaves a recommendation for the farmer on the case.
   Future<Result<void>> addRecommendation(
@@ -92,6 +111,17 @@ class LocalTechnicianRepository implements TechnicianRepository {
     'crops',
   ];
 
+  static const _farmerTables = [
+    ..._listTables,
+    'communities',
+    'crop_cycles',
+    'technical_assistance',
+    'recommendations',
+    'recommendation_confirmations',
+  ];
+
+  static const _kpiTables = [..._farmerTables, 'incident_status_history'];
+
   final LocalStore _store;
   final CaseReader _reader;
   final String _technicianId;
@@ -135,6 +165,18 @@ class LocalTechnicianRepository implements TechnicianRepository {
         'assistance_categories',
         'assistance_subtypes',
       ], _loadCatalog);
+
+  @override
+  Stream<List<TechnicianFarmer>> watchFarmers() =>
+      watchDerived(_store, _farmerTables, _loadFarmers);
+
+  @override
+  Stream<TechnicianFarmerDetail?> watchFarmer(String farmerId) =>
+      watchDerived(_store, _farmerTables, () => _loadFarmerDetail(farmerId));
+
+  @override
+  Stream<TechnicianKpis> watchKpis() =>
+      watchDerived(_store, _kpiTables, _loadKpis);
 
   @override
   Future<String?> photoUrl(String storagePath) => _photoUrl(storagePath);
@@ -191,6 +233,219 @@ class LocalTechnicianRepository implements TechnicianRepository {
       photos: await _reader.photos(id),
       recommendations: await _reader.recommendations(id),
       visit: await _reader.visit(id),
+    );
+  }
+
+  // --- farmers ------------------------------------------------------------
+
+  static bool _live(Map<String, dynamic> row) =>
+      row['deleted_at'] == null && row['active'] != false;
+
+  Future<List<TechnicianFarmer>> _loadFarmers() async {
+    final farmers = await _store.list('farmers', where: _live);
+    final parcels = await _store.list('parcels', where: _live);
+    final incidents = await _store.list(
+      'incidents',
+      where: (r) => r['deleted_at'] == null,
+    );
+    final assistances = await _store.list(
+      'technical_assistance',
+      where: (r) => r['status'] != 'cancelled',
+    );
+    final result = [
+      for (final row in farmers)
+        await _farmerSummary(
+          row,
+          parcelCount: parcels.where((p) => p['farmer_id'] == row['id']).length,
+          openCases: incidents
+              .where(
+                (i) =>
+                    i['farmer_id'] == row['id'] &&
+                    (IncidentStatus.tryParse(i['status'])?.isOpen ?? true),
+              )
+              .length,
+          assistances: assistances
+              .where((a) => a['farmer_id'] == row['id'])
+              .toList(),
+        ),
+    ];
+    result.sort((a, b) {
+      final byOpen = b.openCaseCount.compareTo(a.openCaseCount);
+      return byOpen != 0
+          ? byOpen
+          : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return result;
+  }
+
+  Future<TechnicianFarmer> _farmerSummary(
+    Map<String, dynamic> row, {
+    required int parcelCount,
+    required int openCases,
+    required List<Map<String, dynamic>> assistances,
+  }) async {
+    final profile = await _store.get('profiles', '${row['user_id']}');
+    final communityId = row['community_id'];
+    final community = communityId == null
+        ? null
+        : await _store.get('communities', '$communityId');
+    DateTime? last;
+    for (final a in assistances) {
+      final date = CaseReader.date(a['assistance_date']);
+      if (date != null && (last == null || date.isAfter(last))) last = date;
+    }
+    return TechnicianFarmer(
+      id: '${row['id']}',
+      name: _nonEmpty(profile?['full_name']) ?? 'Agricultor',
+      phone: _nonEmpty(row['phone']) ?? _nonEmpty(profile?['phone']),
+      communityName: _nonEmpty(community?['name']),
+      parcelCount: parcelCount,
+      openCaseCount: openCases,
+      lastAssistanceDate: last,
+    );
+  }
+
+  Future<TechnicianFarmerDetail?> _loadFarmerDetail(String farmerId) async {
+    final row = await _store.get('farmers', farmerId);
+    if (row == null || row['deleted_at'] != null) return null;
+    final parcelRows = await _store.list(
+      'parcels',
+      where: (p) => _live(p) && p['farmer_id'] == farmerId,
+    );
+    final incidentRows = await _store.list(
+      'incidents',
+      where: (i) => i['deleted_at'] == null && i['farmer_id'] == farmerId,
+    );
+    final assistanceRows = await _store.list(
+      'technical_assistance',
+      where: (a) => a['farmer_id'] == farmerId && a['status'] != 'cancelled',
+    );
+
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+    final cases = [for (final i in incidentRows) await _summary(i)]
+      ..sort(
+        (a, b) => (b.reportedAt ?? epoch).compareTo(a.reportedAt ?? epoch),
+      );
+    final openByParcel = <String, int>{};
+    for (final c in cases) {
+      if (c.isOpen) {
+        openByParcel[c.parcelId] = (openByParcel[c.parcelId] ?? 0) + 1;
+      }
+    }
+    final cycles = await _store.list(
+      'crop_cycles',
+      where: (c) => c['status'] == 'active',
+    );
+    final parcels = <Parcel>[];
+    for (final p in parcelRows) {
+      final parcel = Parcel.tryFromRow(p);
+      if (parcel == null) continue;
+      String? crop;
+      for (final cycle in cycles) {
+        if (cycle['parcel_id'] != parcel.id) continue;
+        final cropRow = await _store.get('crops', '${cycle['crop_id']}');
+        crop = _nonEmpty(cropRow?['name']);
+        if (crop != null) break;
+      }
+      parcels.add(
+        parcel.copyWith(cropName: crop, openIncidents: openByParcel[parcel.id]),
+      );
+    }
+    parcels.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+
+    final parcelNames = {for (final p in parcels) p.id: p.name};
+    final assistances = [
+      for (final a in assistanceRows)
+        FarmerAssistanceEntry(
+          id: '${a['id']}',
+          date: CaseReader.date(a['assistance_date']),
+          topic: _nonEmpty(a['topic']) ?? 'Asistencia',
+          status: '${a['status']}',
+          isPending: await _store.isPending('technical_assistance', '${a['id']}'),
+          parcelName: parcelNames['${a['parcel_id']}'],
+        ),
+    ]..sort((a, b) => (b.date ?? epoch).compareTo(a.date ?? epoch));
+
+    final recommendations = await _store.list(
+      'recommendations',
+      where: (r) => r['farmer_id'] == farmerId,
+    );
+    final confirmed = {
+      for (final c in await _store.list('recommendation_confirmations'))
+        '${c['recommendation_id']}',
+    };
+
+    return TechnicianFarmerDetail(
+      farmer: await _farmerSummary(
+        row,
+        parcelCount: parcels.length,
+        openCases: cases.where((c) => c.isOpen).length,
+        assistances: assistanceRows,
+      ),
+      parcels: parcels,
+      cases: cases,
+      assistances: assistances,
+      recommendations: RecommendationCounts(
+        issued: recommendations.length,
+        confirmed: recommendations
+            .where((r) => confirmed.contains('${r['id']}'))
+            .length,
+      ),
+    );
+  }
+
+  Future<TechnicianKpis> _loadKpis() async {
+    final cases = await _loadCases();
+    final farmers = await _store.list('farmers', where: _live);
+    final scheduled = await _store.list(
+      'technical_assistance',
+      where: (a) => a['status'] == 'scheduled',
+    );
+    final recommendations = await _store.list('recommendations');
+    final confirmed = {
+      for (final c in await _store.list('recommendation_confirmations'))
+        '${c['recommendation_id']}',
+    };
+
+    // Days from the report to the first change away from "reported".
+    final firstReaction = <String, DateTime>{};
+    for (final h in await _store.list('incident_status_history')) {
+      if (h['new_status'] == IncidentStatus.reported.wire) continue;
+      final at = CaseReader.date(h['changed_at']);
+      if (at == null) continue;
+      final id = '${h['incident_id']}';
+      final known = firstReaction[id];
+      if (known == null || at.isBefore(known)) firstReaction[id] = at;
+    }
+    final delays = <double>[];
+    for (final c in cases) {
+      final reported = c.reportedAt;
+      final reacted = firstReaction[c.id];
+      if (reported == null || reacted == null) continue;
+      final days = reacted.difference(reported).inMinutes / (60 * 24);
+      delays.add(days < 0 ? 0 : days);
+    }
+
+    return TechnicianKpis(
+      openAlerts: cases.where((c) => c.isOpen).length,
+      urgentAlerts: cases
+          .where((c) => c.isOpen && c.priority == CasePriority.high)
+          .length,
+      attendedCases: cases
+          .where((c) => c.status == IncidentStatus.attended)
+          .length,
+      closedCases: cases.where((c) => c.status == IncidentStatus.closed).length,
+      scheduledVisits: scheduled.length,
+      activeFarmers: farmers.length,
+      recommendationsIssued: recommendations.length,
+      recommendationsConfirmed: recommendations
+          .where((r) => confirmed.contains('${r['id']}'))
+          .length,
+      avgResponseDays: delays.isEmpty
+          ? null
+          : delays.reduce((a, b) => a + b) / delays.length,
     );
   }
 
@@ -320,6 +575,65 @@ class LocalTechnicianRepository implements TechnicianRepository {
     if (text.isNotEmpty) {
       await _saveRecommendation(
         row,
+        assistanceId: assistanceId,
+        text: text,
+        dueDate: draft.nextReview,
+      );
+    }
+  });
+
+  @override
+  Future<Result<void>> registerFieldAssistance({
+    required String farmerId,
+    String? parcelId,
+    required AssistanceDraft draft,
+  }) => _guard(() async {
+    final farmer = await _store.get('farmers', farmerId);
+    if (farmer == null || farmer['deleted_at'] != null) {
+      throw const TechnicianException(TechnicianFailure.farmerNotFound);
+    }
+    if (parcelId != null) {
+      final parcel = await _store.get('parcels', parcelId);
+      if (parcel == null || parcel['farmer_id'] != farmerId) {
+        throw const TechnicianException(TechnicianFailure.farmerNotFound);
+      }
+    }
+    final observation = draft.observation.trim();
+    if (observation.isEmpty) {
+      throw const TechnicianException(TechnicianFailure.emptyText);
+    }
+    final category = await _store.get('assistance_categories', draft.categoryId);
+    if (category == null) {
+      throw const TechnicianException(TechnicianFailure.noCategory);
+    }
+    final assistanceId = _store.newId();
+    await _store.save(
+      table: 'technical_assistance',
+      id: assistanceId,
+      op: SyncOp.upsert,
+      // No incident_id: the assistance happens outside any case.
+      row: {
+        'farmer_id': farmerId,
+        'parcel_id': ?parcelId,
+        'provider': 'AIDER',
+        'technician_id': _technicianId,
+        'created_by': _technicianId,
+        'category_id': draft.categoryId,
+        'subtype_id': draft.subtypeId,
+        'assistance_date': _day(_clock()),
+        'topic': category['name'],
+        'observations': observation,
+        'next_followup_date': ?(draft.nextReview == null
+            ? null
+            : _day(draft.nextReview!)),
+        'status': 'completed',
+      },
+    );
+    final text = draft.recommendation.trim();
+    if (text.isNotEmpty) {
+      await _saveRecommendationFor(
+        farmerId: farmerId,
+        parcelId: parcelId,
         assistanceId: assistanceId,
         text: text,
         dueDate: draft.nextReview,
@@ -512,6 +826,20 @@ class LocalTechnicianRepository implements TechnicianRepository {
     required String assistanceId,
     required String text,
     DateTime? dueDate,
+  }) => _saveRecommendationFor(
+    farmerId: '${incident['farmer_id']}',
+    parcelId: '${incident['parcel_id']}',
+    assistanceId: assistanceId,
+    text: text,
+    dueDate: dueDate,
+  );
+
+  Future<void> _saveRecommendationFor({
+    required String farmerId,
+    required String? parcelId,
+    required String assistanceId,
+    required String text,
+    DateTime? dueDate,
   }) {
     return _store.save(
       table: 'recommendations',
@@ -519,8 +847,8 @@ class LocalTechnicianRepository implements TechnicianRepository {
       op: SyncOp.upsert,
       row: {
         'assistance_id': assistanceId,
-        'farmer_id': incident['farmer_id'],
-        'parcel_id': incident['parcel_id'],
+        'farmer_id': farmerId,
+        'parcel_id': ?parcelId,
         'description': text,
         'due_date': ?(dueDate == null ? null : _day(dueDate)),
         'created_by': _technicianId,

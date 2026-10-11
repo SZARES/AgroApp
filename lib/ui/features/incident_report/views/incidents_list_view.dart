@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../view_models/incidents_view_model.dart';
 import 'incident_status_labels.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Mis reportes": every problem the farmer reported, newest first.
 class IncidentsListView extends StatelessWidget {
@@ -25,7 +26,7 @@ class IncidentsListView extends StatelessWidget {
           listenable: viewModel,
           builder: (context, _) {
             if (viewModel.isLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return const SkeletonList(padding: EdgeInsets.all(20));
             }
             if (viewModel.loadFailed) {
               return Center(

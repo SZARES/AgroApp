@@ -5,6 +5,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../../../core/widgets/stream_view_model.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Registrar actividad": the farmer's activities, plus the button that
 /// starts a new one.
@@ -49,9 +50,9 @@ class ActivityLogView extends StatelessWidget {
                 Text('Últimas actividades', style: textTheme.titleLarge),
                 const SizedBox(height: 8),
                 if (viewModel.isLoading)
-                  const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
+                  const SizedBox(
+                    height: 280,
+                    child: SkeletonList(count: 3),
                   )
                 else if (viewModel.loadFailed)
                   Text(

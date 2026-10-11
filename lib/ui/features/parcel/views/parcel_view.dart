@@ -10,6 +10,7 @@ import '../view_models/add_parcel_view_model.dart';
 import '../view_models/parcel_map_projection.dart';
 import '../view_models/parcel_view_model.dart';
 import 'add_parcel_view.dart';
+import '../../../core/widgets/skeleton.dart';
 
 class ParcelView extends StatelessWidget {
   const ParcelView({
@@ -47,7 +48,7 @@ class ParcelView extends StatelessWidget {
           listenable: viewModel,
           builder: (context, _) {
             if (viewModel.isLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return const SkeletonList(padding: EdgeInsets.all(20), count: 3);
             }
             if (viewModel.loadFailed) {
               return const EmptyState(

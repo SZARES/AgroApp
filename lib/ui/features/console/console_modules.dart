@@ -15,6 +15,11 @@ abstract final class ConsoleModules {
     label: 'Parcelas',
     icon: Icons.landscape_outlined,
   );
+  static const farmers = AiderNavItem(
+    id: 'farmers',
+    label: 'Agricultores',
+    icon: Icons.people_outline,
+  );
   static const territory = AiderNavItem(
     id: 'territory',
     label: 'Territorio',
@@ -50,7 +55,7 @@ abstract final class ConsoleModules {
   /// Modules the console shows for [role]; farmers have no console.
   static List<AiderNavItem> forRole(UserRole role) {
     return switch (role) {
-      UserRole.technician => const [home, parcels, calendar, alerts],
+      UserRole.technician => const [home, farmers, alerts],
       UserRole.supervisor => const [home, territory, team, reports],
       UserRole.admin => const [
         home,

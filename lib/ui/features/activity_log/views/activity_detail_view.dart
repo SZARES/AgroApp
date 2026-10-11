@@ -4,6 +4,7 @@ import '../../../../domain/models/activity.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../../../core/widgets/stream_view_model.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Real data of one activity, read from the device.
 class ActivityDetailView extends StatelessWidget {
@@ -21,7 +22,7 @@ class ActivityDetailView extends StatelessWidget {
           listenable: viewModel,
           builder: (context, _) {
             if (viewModel.isLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return const SkeletonDetail();
             }
             final detail = viewModel.value;
             if (viewModel.loadFailed || detail == null) {
