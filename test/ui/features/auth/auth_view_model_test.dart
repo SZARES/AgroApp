@@ -71,6 +71,31 @@ void main() {
     },
   );
 
+  test(
+    'a server-side session end sends the user to login with a reason',
+    () async {
+      repository.restoreResult = const Result.ok(farmer);
+      final viewModel = build();
+      await viewModel.bootstrap();
+
+      repository.expiredController.add(null);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(viewModel.state, isA<AuthSignedOut>());
+      expect(viewModel.restoreFailure, AuthFailure.sessionExpired);
+    },
+  );
+
+  test('a session-end event while signed out changes nothing', () async {
+    final viewModel = build();
+    await viewModel.bootstrap();
+
+    repository.expiredController.add(null);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(viewModel.restoreFailure, isNull);
+  });
+
   test('signIn success signs in and forces a pull', () async {
     repository.signInResult = const Result.ok(farmer);
     final viewModel = build()..addListener(() {});

@@ -16,6 +16,10 @@ abstract interface class AuthService {
   /// Ends the session on this device (works offline).
   Future<void> signOut();
 
+  /// Emits when the session ends by itself (expired or revoked refresh token
+  /// while online). Not emitted for [signOut] nor for network failures.
+  Stream<void> get sessionEnded;
+
   /// The `profiles` row of [userId], or null when it does not exist.
   Future<Map<String, dynamic>?> fetchProfile(String userId);
 

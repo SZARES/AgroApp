@@ -164,6 +164,11 @@ class FakeAuthService implements AuthService {
 
   int signOutCalls = 0;
 
+  final endedController = StreamController<void>.broadcast();
+
+  @override
+  Stream<void> get sessionEnded => endedController.stream;
+
   @override
   Future<String> signInWithPassword({
     required String email,
@@ -212,12 +217,21 @@ class FakeAuthRepository implements AuthRepository {
   Result<AppUser?>? restoreResult;
   Result<void>? signOutResult;
 
-  final List<({String email, String password})> signIns = [];
+  final List<({String email, String password, bool farmerOnly})> signIns = [];
   final List<bool> signOuts = [];
 
+  final expiredController = StreamController<void>.broadcast();
+
   @override
-  Future<Result<AppUser>> signIn(String email, String password) async {
-    signIns.add((email: email, password: password));
+  Stream<void> get sessionExpired => expiredController.stream;
+
+  @override
+  Future<Result<AppUser>> signIn(
+    String email,
+    String password, {
+    bool farmerOnly = false,
+  }) async {
+    signIns.add((email: email, password: password, farmerOnly: farmerOnly));
     return signInResult ??
         const Result.error(
           AuthFailureException(AuthFailure.invalidCredentials),

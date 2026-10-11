@@ -35,8 +35,28 @@ class SupabaseAuthService implements AuthService {
   String? restoredUserId() =>
       (_client.auth.currentSession?.user ?? _client.auth.currentUser)?.id;
 
+  /// Own sign-outs are told apart from server-side ones by this flag.
+  static bool _signingOut = false;
+
   @override
-  Future<void> signOut() => _client.auth.signOut(scope: SignOutScope.local);
+  Stream<void> get sessionEnded => _client.auth.onAuthStateChange
+      .where((state) => state.event == AuthChangeEvent.signedOut)
+      .where((_) => !_signingOut)
+      .map((_) {});
+
+  @override
+  Future<void> signOut() async {
+    _signingOut = true;
+    try {
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } finally {
+      // The signedOut event is delivered asynchronously; clear after it.
+      Future<void>.delayed(
+        const Duration(milliseconds: 500),
+        () => _signingOut = false,
+      );
+    }
+  }
 
   @override
   Future<Map<String, dynamic>?> fetchProfile(String userId) => _guard(() async {

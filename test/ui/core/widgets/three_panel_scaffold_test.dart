@@ -13,7 +13,11 @@ void main() {
           title: Text('Titulo'),
           sidebar: ColoredBox(color: Colors.red, child: Text('SIDEBAR')),
           listPanel: ColoredBox(color: Colors.green, child: Text('LIST')),
-          mainArea: ColoredBox(color: Colors.blue, child: Text('MAIN')),
+          mainArea: ColoredBox(
+            key: Key('main'),
+            color: Colors.blue,
+            child: SizedBox.expand(child: Text('MAIN')),
+          ),
         ),
       ),
     );
@@ -43,7 +47,7 @@ void main() {
     expect(find.text('MAIN'), findsOneWidget);
     expect(find.text('SIDEBAR'), findsNothing);
     expect(find.text('LIST'), findsNothing);
-    expect(tester.getSize(find.widgetWithText(ColoredBox, 'MAIN')).width, 420);
+    expect(tester.getSize(find.byKey(const Key('main'))).width, 420);
   });
 
   testWidgets('narrow layout moves sidebar and list into a drawer', (

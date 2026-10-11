@@ -15,7 +15,21 @@ abstract interface class AuthRepository {
   /// signed in on this device cannot sign in offline.
   ///
   /// The error is an [AuthFailureException].
-  Future<Result<AppUser>> signIn(String email, String password);
+  ///
+  /// With [farmerOnly] (the DNI form) a profile that is not a farmer is
+  /// rejected as invalid credentials and the session is dropped: a DNI-derived
+  /// email can only belong to a farmer.
+  Future<Result<AppUser>> signIn(
+    String email,
+    String password, {
+    bool farmerOnly = false,
+  });
+
+  /// Emits when the server ends the session without the user asking (for
+  /// example an expired refresh token while online). Never emits on an
+  /// explicit sign-out, and never because the device is offline. The cached
+  /// profile and the replica are kept so unsent records are not lost.
+  Stream<void> get sessionExpired;
 
   /// The user of the session persisted on this device, or null when nobody is
   /// signed in. Works offline by falling back to the cached profile.
@@ -110,9 +124,20 @@ class DefaultAuthRepository implements AuthRepository {
   final Duration networkTimeout;
 
   @override
-  Future<Result<AppUser>> signIn(String email, String password) async {
+  Stream<void> get sessionExpired => _service.sessionEnded;
+
+  @override
+  Future<Result<AppUser>> signIn(
+    String email,
+    String password, {
+    bool farmerOnly = false,
+  }) async {
     try {
       final user = await _signInAndLoad(email.trim(), password);
+      if (farmerOnly && user.role != UserRole.farmer) {
+        await _quietSignOut();
+        throw const AuthFailureException(AuthFailure.invalidCredentials);
+      }
       await _adopt(user);
       return Result.ok(user);
     } on Object catch (error) {
@@ -152,7 +177,8 @@ class DefaultAuthRepository implements AuthRepository {
           return Result.error(failure);
         case AuthFailure.inactiveAccount ||
             AuthFailure.noProfile ||
-            AuthFailure.invalidCredentials:
+            AuthFailure.invalidCredentials ||
+            AuthFailure.sessionExpired:
           await _quietSignOut();
           await _cache.clear();
           return Result.error(failure);
