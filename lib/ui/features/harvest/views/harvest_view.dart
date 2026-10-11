@@ -1,99 +1,113 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/widgets/option_tile.dart';
+import '../../../../domain/models/harvest.dart';
+import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_action_button.dart';
-import '../../../mock/mock_data.dart';
+import '../../../core/widgets/step_flow.dart';
+import '../../../core/widgets/stream_view_model.dart';
 
-class HarvestView extends StatefulWidget {
-  const HarvestView({super.key});
+/// "Registrar cosecha": the farmer's previous harvests, plus the button that
+/// starts a new one.
+class HarvestView extends StatelessWidget {
+  const HarvestView({
+    super.key,
+    required this.viewModel,
+    required this.recordBuilder,
+  });
 
-  @override
-  State<HarvestView> createState() => _HarvestViewState();
-}
+  final StreamViewModel<List<HarvestSummary>> viewModel;
 
-class _HarvestViewState extends State<HarvestView> {
-  static const _units = ['saco', 'caja', 'kg', 'atado'];
-  static const _destinations = [
-    (label: 'Autoconsumo', icon: Icons.home_outlined),
-    (label: 'Venta', icon: Icons.sell_outlined),
-    (label: 'Acopiador', icon: Icons.local_shipping_outlined),
-  ];
-
-  late String _field = mockFields.first.name;
-  String _unit = _units.first;
-  int? _destination;
-
-  void _save() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Guardado en el celular')));
-    Navigator.of(context).pop();
-  }
+  /// Builds the one-question-per-screen flow.
+  final WidgetBuilder recordBuilder;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Registrar cosecha')),
+      appBar: AppBar(title: const Text('Mis cosechas')),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _field,
-              decoration: const InputDecoration(labelText: 'Campo'),
-              style: textTheme.titleMedium,
-              items: [
-                for (final field in mockFields)
-                  DropdownMenuItem(value: field.name, child: Text(field.name)),
+        child: ListenableBuilder(
+          listenable: viewModel,
+          builder: (context, _) {
+            final items = viewModel.value;
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                PrimaryActionButton(
+                  label: 'Registrar cosecha',
+                  icon: Icons.agriculture,
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(builder: recordBuilder),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text('Cosechas anteriores', style: textTheme.titleLarge),
+                const SizedBox(height: 8),
+                if (viewModel.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (viewModel.loadFailed)
+                  Text(
+                    'No pudimos leer sus cosechas',
+                    style: textTheme.titleMedium,
+                  )
+                else if (items.isEmpty)
+                  const SizedBox(
+                    height: 240,
+                    child: EmptyState(
+                      icon: Icons.agriculture,
+                      title: 'Todavía no registró ninguna cosecha',
+                    ),
+                  )
+                else
+                  for (final harvest in items) _HarvestCard(harvest: harvest),
               ],
-              onChanged: (value) => setState(() => _field = value!),
-            ),
-            const SizedBox(height: 16),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _HarvestCard extends StatelessWidget {
+  const _HarvestCard({required this.harvest});
+
+  final HarvestSummary harvest;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final lines = [
+      '${harvest.parcelName} · ${formatShortDate(harvest.date)}',
+      if (harvest.householdLabel != null) 'Casa: ${harvest.householdLabel}',
+      if (harvest.surplusLabel != null) 'Para vender: ${harvest.surplusLabel}',
+      if (harvest.saleTotal != null)
+        'Venta: ${formatSoles(harvest.saleTotal!)}',
+      if (harvest.residueLabel != null) 'Rastrojo: ${harvest.residueLabel}',
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
-                const Expanded(
-                  flex: 2,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(fontSize: 22),
-                    decoration: InputDecoration(labelText: 'Cantidad'),
-                  ),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _unit,
-                    decoration: const InputDecoration(labelText: 'Unidad'),
-                    items: [
-                      for (final unit in _units)
-                        DropdownMenuItem(value: unit, child: Text(unit)),
-                    ],
-                    onChanged: (value) => setState(() => _unit = value!),
+                  child: Text(
+                    '${harvest.cropName}: ${harvest.quantityLabel}',
+                    style: textTheme.titleMedium,
                   ),
                 ),
+                if (harvest.isPending) const PendingChip(),
               ],
             ),
-            const SizedBox(height: 24),
-            Text('¿Dónde fue a parar?', style: textTheme.titleLarge),
-            const SizedBox(height: 12),
-            for (var i = 0; i < _destinations.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: OptionTile(
-                  label: _destinations[i].label,
-                  icon: _destinations[i].icon,
-                  selected: _destination == i,
-                  onTap: () => setState(() => _destination = i),
-                ),
-              ),
             const SizedBox(height: 8),
-            PrimaryActionButton(
-              label: 'Guardar',
-              icon: Icons.save_outlined,
-              onPressed: _destination == null ? null : _save,
-            ),
+            for (final line in lines) Text(line, style: textTheme.bodyMedium),
           ],
         ),
       ),

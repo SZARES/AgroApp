@@ -4,9 +4,6 @@ import '../../../../domain/models/home_summary.dart';
 import '../../../../domain/models/incident_status.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/sync_status_indicator.dart';
-import '../../activity_log/views/activity_log_view.dart';
-import '../../assistance/views/assistance_view.dart';
-import '../../harvest/views/harvest_view.dart';
 import '../view_models/home_view_model.dart';
 
 class HomeView extends StatelessWidget {
@@ -14,6 +11,9 @@ class HomeView extends StatelessWidget {
     super.key,
     required this.viewModel,
     required this.parcelBuilder,
+    required this.activityBuilder,
+    required this.harvestBuilder,
+    required this.assistanceBuilder,
     required this.reportBuilder,
     required this.reportsBuilder,
     required this.caseBuilder,
@@ -23,6 +23,15 @@ class HomeView extends StatelessWidget {
 
   /// Builds the "Mi parcela" screen (it owns its own state).
   final WidgetBuilder parcelBuilder;
+
+  /// Builds the "Registrar actividad" screen (list and flow).
+  final WidgetBuilder activityBuilder;
+
+  /// Builds the "Registrar cosecha" screen (list and flow).
+  final WidgetBuilder harvestBuilder;
+
+  /// Builds the "Mis asistencias" screen.
+  final WidgetBuilder assistanceBuilder;
 
   /// Builds the "Reportar problema" flow.
   final WidgetBuilder reportBuilder;
@@ -74,7 +83,7 @@ class HomeView extends StatelessWidget {
                 PrimaryActionButton(
                   label: 'Registrar actividad',
                   icon: Icons.edit_note,
-                  onPressed: () => _open(context, const ActivityLogView()),
+                  onPressed: () => _open(context, activityBuilder(context)),
                 ),
                 const SizedBox(height: 16),
                 PrimaryActionButton(
@@ -86,11 +95,11 @@ class HomeView extends StatelessWidget {
                 PrimaryActionButton(
                   label: 'Registrar cosecha',
                   icon: Icons.agriculture,
-                  onPressed: () => _open(context, const HarvestView()),
+                  onPressed: () => _open(context, harvestBuilder(context)),
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
-                  onPressed: () => _open(context, const AssistanceView()),
+                  onPressed: () => _open(context, assistanceBuilder(context)),
                   icon: const Icon(Icons.groups_outlined, size: 28),
                   label: const Text('Mis asistencias'),
                 ),
