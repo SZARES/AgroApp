@@ -11,7 +11,16 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   /// Tests pass an in-memory [executor]; production opens the on-device file.
   AppDatabase([QueryExecutor? executor])
-    : super(executor ?? driftDatabase(name: 'agroapp'));
+    : super(
+        executor ??
+            driftDatabase(
+              name: 'agroapp',
+              web: DriftWebOptions(
+                sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+                driftWorker: Uri.parse('drift_worker.js'),
+              ),
+            ),
+      );
 
   @override
   int get schemaVersion => 1;
