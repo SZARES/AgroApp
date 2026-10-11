@@ -1,0 +1,36 @@
+import 'package:flutter/material.dart';
+
+import '../../../../domain/models/admin/catalog_defs.dart';
+
+/// Dropdown that switches between the admin sections.
+class AdminSectionSwitcher extends StatelessWidget {
+  const AdminSectionSwitcher({
+    super.key,
+    required this.selectedId,
+    required this.onChanged,
+  });
+
+  final String selectedId;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      key: const ValueKey('admin_section_switcher'),
+      initialValue: selectedId,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Sección',
+        isDense: true,
+        prefixIcon: Icon(Icons.tune),
+      ),
+      items: [
+        for (final section in CatalogDefs.sections)
+          DropdownMenuItem(value: section.id, child: Text(section.title)),
+      ],
+      onChanged: (value) {
+        if (value != null && value != selectedId) onChanged(value);
+      },
+    );
+  }
+}

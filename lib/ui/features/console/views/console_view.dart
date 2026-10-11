@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../../data/repositories/admin_repository.dart';
 import '../../../../domain/models/app_user.dart';
 import '../../../core/widgets/aider_shell.dart';
 import '../../../core/widgets/three_panel_scaffold.dart';
+import '../../admin/views/admin_view.dart';
 import '../console_modules.dart';
 
 /// The AIDER web console for technicians, supervisors and admins.
@@ -34,9 +37,16 @@ class _ConsoleViewState extends State<ConsoleView> {
     if (scaffold != null && scaffold.isDrawerOpen) scaffold.closeDrawer();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final module = _selected;
+  /// The admin repository when the app provides one (tests may not).
+  AdminRepository? _adminRepository(BuildContext context) {
+    try {
+      return context.read<AdminRepository>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  Widget _scaffold(AiderNavItem module, Widget listPanel, Widget mainArea) {
     return ThreePanelScaffold(
       scaffoldKey: _scaffoldKey,
       title: Text(module.label),
@@ -47,13 +57,34 @@ class _ConsoleViewState extends State<ConsoleView> {
         userName: widget.user.fullName,
         onSignOut: widget.onSignOut,
       ),
-      listPanel: AiderListPanel(
+      listPanel: listPanel,
+      mainArea: mainArea,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final module = _selected;
+    if (module.id == ConsoleModules.admin.id) {
+      final repository = _adminRepository(context);
+      if (repository != null) {
+        return AdminView(
+          user: widget.user,
+          repository: repository,
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+    }
+    return _scaffold(
+      module,
+      AiderListPanel(
         title: module.label,
         items: const [],
         selectedId: null,
         onSelect: (_) {},
       ),
-      mainArea: AiderMainArea(child: ModulePlaceholder(item: module)),
+      AiderMainArea(child: ModulePlaceholder(item: module)),
     );
   }
 }

@@ -3,10 +3,13 @@ import 'package:provider/single_child_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/local/app_database.dart';
+import '../data/repositories/admin_repository.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/local_store.dart';
 import '../data/repositories/outbox_repository.dart';
+import '../data/services/admin_service.dart';
 import '../data/services/auth_service.dart';
+import '../data/services/supabase_admin_service.dart';
 import '../data/services/connectivity_service.dart';
 import '../data/services/supabase_auth_service.dart';
 import '../data/services/supabase_sync_service.dart';
@@ -39,6 +42,17 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
         connectivity: context.read(),
       )..start(),
       dispose: (_, engine) => engine.dispose(),
+    ),
+    Provider<AdminService>(create: (_) => SupabaseAdminService(supabaseClient)),
+    Provider<AdminRepository>(
+      create: (context) => DefaultAdminRepository(
+        service: context.read(),
+        store: context.read(),
+        connectivity: context.read(),
+        requestSync: () async {
+          await context.read<SyncEngine>().syncNow(forcePull: true);
+        },
+      ),
     ),
     Provider<AuthRepository>(
       create: (context) => DefaultAuthRepository(

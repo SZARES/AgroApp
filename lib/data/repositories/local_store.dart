@@ -154,6 +154,22 @@ class LocalStore {
     });
   }
 
+  /// Hard-removes rows from the replica (for join rows the server deleted).
+  /// Rows with local changes still waiting to be pushed are kept.
+  Future<void> removeRows(String table, Iterable<String> ids) {
+    return _database.transaction(() async {
+      final idList = ids.toList();
+      if (idList.isEmpty) return;
+      await (_database.delete(_records)..where(
+            (r) =>
+                r.sourceTable.equals(table) &
+                r.id.isIn(idList) &
+                r.pending.equals(false),
+          ))
+          .go();
+    });
+  }
+
   /// Clears the pending flag of rows whose outbox records were delivered,
   /// unless a newer change for the same row is still waiting.
   Future<void> settle(Iterable<OutboxRecord> delivered) {
