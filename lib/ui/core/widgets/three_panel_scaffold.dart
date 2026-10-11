@@ -41,48 +41,45 @@ class ThreePanelScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final panelColor = Theme.of(context).colorScheme.surfaceContainerLow;
-        if (isWide(constraints.maxWidth)) {
-          return Scaffold(
-            key: scaffoldKey,
-            body: Row(
-              children: [
-                SizedBox(width: sidebarWidth, child: sidebar),
-                if (listPanel != null)
-                  SizedBox(
-                    width: listPanelWidth,
-                    child: ColoredBox(color: panelColor, child: listPanel),
-                  ),
-                Expanded(child: mainArea),
-              ],
-            ),
-          );
-        }
-        return Scaffold(
-          key: scaffoldKey,
-          appBar: AppBar(title: title, actions: narrowActions),
-          drawer: Drawer(
-            width: math.min(
-              sidebarWidth + (listPanel == null ? 0 : listPanelWidth),
-              constraints.maxWidth - 16,
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  SizedBox(width: sidebarWidth, child: sidebar),
-                  if (listPanel != null)
-                    Expanded(
-                      child: ColoredBox(color: panelColor, child: listPanel),
-                    ),
-                ],
+    final width = MediaQuery.sizeOf(context).width;
+    final panelColor = Theme.of(context).colorScheme.surfaceContainerLow;
+    if (isWide(width)) {
+      return Scaffold(
+        key: scaffoldKey,
+        body: Row(
+          children: [
+            SizedBox(width: sidebarWidth, child: sidebar),
+            if (listPanel != null)
+              SizedBox(
+                width: listPanelWidth,
+                child: ColoredBox(color: panelColor, child: listPanel),
               ),
-            ),
+            Expanded(child: mainArea),
+          ],
+        ),
+      );
+    }
+    return Scaffold(
+      key: scaffoldKey,
+      appBar: AppBar(title: title, actions: narrowActions),
+      drawer: Drawer(
+        width: math.min(
+          sidebarWidth + (listPanel == null ? 0 : listPanelWidth),
+          width - 16,
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              SizedBox(width: sidebarWidth, child: sidebar),
+              if (listPanel != null)
+                Expanded(
+                  child: ColoredBox(color: panelColor, child: listPanel),
+                ),
+            ],
           ),
-          body: mainArea,
-        );
-      },
+        ),
+      ),
+      body: mainArea,
     );
   }
 }

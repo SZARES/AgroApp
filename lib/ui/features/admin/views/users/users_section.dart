@@ -146,23 +146,57 @@ class _UsersSectionState extends State<UsersSection> {
             title: user.fullName.isEmpty ? '(sin nombre)' : user.fullName,
             subtitle: user.subtitle.isEmpty ? null : user.subtitle,
             searchText: '${user.email} ${user.dni ?? ''}',
-            leading: CircleAvatar(
-              backgroundColor: scheme.primaryContainer,
-              child: Text(
-                user.fullName.isEmpty ? '?' : user.fullName[0].toUpperCase(),
-              ),
+            leading: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                CircleAvatar(
+                  backgroundColor: scheme.primaryContainer,
+                  child: Text(
+                    user.fullName.isEmpty
+                        ? '?'
+                        : user.fullName[0].toUpperCase(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: user.status == UserStatus.active
+                        ? Colors.green.shade600
+                        : scheme.error,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: scheme.surface, width: 1.5),
+                  ),
+                ),
+              ],
             ),
             footer: Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: 6),
               child: Wrap(
                 spacing: 6,
+                runSpacing: 4,
                 children: [
-                  AdminChip(roleLabel(user.role)),
+                  AdminChip(
+                    roleLabel(user.role),
+                    icon: switch (user.role) {
+                      UserRole.farmer => Icons.agriculture,
+                      UserRole.technician => Icons.engineering,
+                      UserRole.supervisor => Icons.supervisor_account,
+                      UserRole.admin => Icons.admin_panel_settings,
+                    },
+                  ),
                   AdminChip(
                     statusLabel(user.status),
                     color: user.status == UserStatus.active
                         ? scheme.primaryContainer
                         : scheme.errorContainer,
+                    icon: user.status == UserStatus.active
+                        ? Icons.check_circle_outline
+                        : Icons.cancel_outlined,
                   ),
                 ],
               ),

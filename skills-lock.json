@@ -43,6 +43,12 @@
       "skillPath": "skills/flutter-implement-json-serialization/SKILL.md",
       "computedHash": "c2cf46854472a452dafa11f862f2bca3d9fe7286a5bb45d85b1efbcebc74b74e"
     },
+    "flutter-improve-design": {
+      "source": "kamranbekirovyz/skills",
+      "sourceType": "github",
+      "skillPath": "flutter-improve-design/SKILL.md",
+      "computedHash": "5071b86878c3fa1b9f493eebdd0fcf1293ed56bf0c2bd7086dc15bebe7729924"
+    },
     "flutter-setup-declarative-routing": {
       "source": "flutter/agent-plugins",
       "sourceType": "github",

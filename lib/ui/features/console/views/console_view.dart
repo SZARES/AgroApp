@@ -4,11 +4,18 @@ import 'package:provider/provider.dart';
 import '../../../../data/repositories/admin_repository.dart';
 import '../../../../data/repositories/supervisor_repository.dart';
 import '../../../../data/repositories/technician_repository.dart';
+import '../../../../domain/models/admin/catalog_defs.dart';
 import '../../../../domain/models/app_user.dart';
 import '../../../../domain/models/user_role.dart';
 import '../../../core/widgets/aider_shell.dart';
 import '../../../core/widgets/three_panel_scaffold.dart';
 import '../../admin/views/admin_view.dart';
+import '../../admin/views/alerts/admin_alerts_view.dart';
+import '../../admin/views/calendar/admin_calendar_view.dart';
+import '../../admin/views/catalog/catalog_section.dart';
+import '../../admin/views/dashboard/admin_dashboard_view.dart';
+import '../../admin/views/reports/admin_reports_view.dart';
+import '../../admin/views/users/users_section.dart';
 import '../../supervisor/views/supervisor_dashboard_view.dart';
 import '../../technician/view_models/technician_case_view_model.dart';
 import '../../technician/view_models/technician_cases_view_model.dart';
@@ -63,9 +70,12 @@ class _ConsoleViewState extends State<ConsoleView> {
     }
   }
 
-  /// The supervisor's dashboard repository (supervisors only; tests may not).
+  /// The supervisor's dashboard repository (supervisors and admins; tests may not).
   SupervisorRepository? _supervisorRepository(BuildContext context) {
-    if (widget.user.role != UserRole.supervisor) return null;
+    if (widget.user.role != UserRole.supervisor &&
+        widget.user.role != UserRole.admin) {
+      return null;
+    }
     try {
       return context.read<SupervisorRepository>();
     } on ProviderNotFoundException {
@@ -98,6 +108,80 @@ class _ConsoleViewState extends State<ConsoleView> {
   @override
   Widget build(BuildContext context) {
     final module = _selected;
+    final adminRepo = _adminRepository(context);
+
+    // Dedicated routing for the administrator role:
+    if (widget.user.role == UserRole.admin && adminRepo != null) {
+      if (module.id == ConsoleModules.home.id) {
+        return AdminDashboardView(
+          user: widget.user,
+          repository: adminRepo,
+          onNavigate: _select,
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+      if (module.id == ConsoleModules.team.id) {
+        return UsersSection(
+          key: const ValueKey('admin_team_section'),
+          repository: adminRepo,
+          switcher: const SizedBox.shrink(),
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+      if (module.id == ConsoleModules.territory.id) {
+        return CatalogSection(
+          key: const ValueKey('admin_territory_section'),
+          repository: adminRepo,
+          section: CatalogDefs.zonesSection,
+          switcher: const SizedBox.shrink(),
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+      if (module.id == ConsoleModules.parcels.id) {
+        return CatalogSection(
+          key: const ValueKey('admin_parcels_section'),
+          repository: adminRepo,
+          section: CatalogDefs.cropsSection,
+          switcher: const SizedBox.shrink(),
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+      if (module.id == ConsoleModules.reports.id) {
+        return AdminReportsView(
+          repository: adminRepo,
+          supervisorRepository: _supervisorRepository(context),
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+      if (module.id == ConsoleModules.calendar.id) {
+        return AdminCalendarView(
+          repository: adminRepo,
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+      if (module.id == ConsoleModules.alerts.id) {
+        return AdminAlertsView(
+          repository: adminRepo,
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+      if (module.id == ConsoleModules.admin.id) {
+        return AdminView(
+          user: widget.user,
+          repository: adminRepo,
+          panelsBuilder: (listPanel, mainArea) =>
+              _scaffold(module, listPanel, mainArea),
+        );
+      }
+    }
+
     if (module.id == ConsoleModules.admin.id) {
       final repository = _adminRepository(context);
       if (repository != null) {
@@ -148,3 +232,4 @@ class _ConsoleViewState extends State<ConsoleView> {
     );
   }
 }
+

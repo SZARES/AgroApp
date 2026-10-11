@@ -24,30 +24,64 @@ class _UserZonesEditorState extends State<UserZonesEditor> {
   @override
   Widget build(BuildContext context) {
     final zones = widget.viewModel.zones;
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Zonas', style: Theme.of(context).textTheme.titleMedium),
-        if (zones.isEmpty) const Text('Todavía no hay zonas creadas.'),
-        for (final zone in zones)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _selected.contains('${zone['id']}'),
-            title: Text('${zone['name']}'),
-            onChanged: (value) => setState(() {
-              value == true
-                  ? _selected.add('${zone['id']}')
-                  : _selected.remove('${zone['id']}');
-            }),
-          ),
         const SizedBox(height: 8),
-        FilledButton(
+        if (zones.isEmpty)
+          const Text('Todavía no hay zonas creadas.')
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < zones.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                  CheckboxListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    dense: true,
+                    value: _selected.contains('${zones[i]['id']}'),
+                    title: Text(
+                      '${zones[i]['name']}',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    onChanged: (value) => setState(() {
+                      value == true
+                          ? _selected.add('${zones[i]['id']}')
+                          : _selected.remove('${zones[i]['id']}');
+                    }),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 14),
+        FilledButton.icon(
           key: const ValueKey('save_zones'),
           onPressed: widget.viewModel.busy
               ? null
               : () =>
                     widget.viewModel.saveZones(widget.user, _selected.toList()),
-          child: const Text('Guardar zonas'),
+          icon: widget.viewModel.busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.check, size: 18),
+          label: const Text('Guardar zonas'),
         ),
       ],
     );
@@ -78,6 +112,7 @@ class _TechnicianParcelsEditorState extends State<TechnicianParcelsEditor> {
   @override
   Widget build(BuildContext context) {
     final parcels = widget.viewModel.assignableParcels(widget.user);
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -85,23 +120,48 @@ class _TechnicianParcelsEditorState extends State<TechnicianParcelsEditor> {
           'Parcelas asignadas',
           style: Theme.of(context).textTheme.titleMedium,
         ),
+        const SizedBox(height: 8),
         if (widget.user.zoneIds.isEmpty)
           const Text('Asigne primero una zona para ver sus parcelas.')
         else if (parcels.isEmpty)
-          const Text('Todavía no hay parcelas en las zonas de esta persona.'),
-        for (final parcel in parcels)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _selected.contains('${parcel['id']}'),
-            title: Text('${parcel['name'] ?? 'Parcela'}'),
-            onChanged: (value) => setState(() {
-              value == true
-                  ? _selected.add('${parcel['id']}')
-                  : _selected.remove('${parcel['id']}');
-            }),
+          const Text('Todavía no hay parcelas en las zonas de esta persona.')
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < parcels.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                  CheckboxListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    dense: true,
+                    value: _selected.contains('${parcels[i]['id']}'),
+                    title: Text(
+                      '${parcels[i]['name'] ?? 'Parcela'}',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    onChanged: (value) => setState(() {
+                      value == true
+                          ? _selected.add('${parcels[i]['id']}')
+                          : _selected.remove('${parcels[i]['id']}');
+                    }),
+                  ),
+                ],
+              ],
+            ),
           ),
-        const SizedBox(height: 8),
-        FilledButton(
+        const SizedBox(height: 14),
+        FilledButton.icon(
           key: const ValueKey('save_parcels'),
           onPressed: widget.viewModel.busy || parcels.isEmpty
               ? null
@@ -109,7 +169,14 @@ class _TechnicianParcelsEditorState extends State<TechnicianParcelsEditor> {
                   widget.user,
                   _selected.toList(),
                 ),
-          child: const Text('Guardar parcelas'),
+          icon: widget.viewModel.busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.check, size: 18),
+          label: const Text('Guardar parcelas'),
         ),
       ],
     );

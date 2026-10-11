@@ -69,22 +69,26 @@ class _CreateUserViewState extends State<CreateUserView> {
                 Expanded(
                   child: Text(
                     'Crear usuario',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                TextButton(
+                TextButton.icon(
                   onPressed: widget.onClose,
-                  child: const Text('Cancelar'),
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text('Cancelar'),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            const Text(
-              '¿Qué tipo de cuenta es? El rol no se puede cambiar; '
-              'cree una cuenta nueva.',
-            ),
             const SizedBox(height: 16),
-            _RolePicker(viewModel: _vm),
+            AdminCard(
+              title: 'Tipo de cuenta',
+              subtitle:
+                  '¿Qué tipo de cuenta es? El rol no se puede cambiar; cree una cuenta nueva.',
+              icon: Icons.manage_accounts_outlined,
+              child: _RolePicker(viewModel: _vm),
+            ),
             if (_vm.role != null) ..._fields(context),
           ],
         );
@@ -96,71 +100,92 @@ class _CreateUserViewState extends State<CreateUserView> {
     final errors = _vm.errors;
     final isFarmer = _vm.role == UserRole.farmer;
     return [
-      const SizedBox(height: 24),
-      TextField(
-        key: const ValueKey('field_full_name'),
-        controller: _fullName,
-        textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(
-          labelText: 'Nombre completo',
-          errorText: errors[UserFormField.fullName],
-        ),
-      ),
-      const SizedBox(height: 16),
-      if (isFarmer)
-        TextField(
-          key: const ValueKey('field_dni'),
-          controller: _dni,
-          keyboardType: TextInputType.number,
-          maxLength: 8,
-          decoration: InputDecoration(
-            labelText: 'DNI (8 números)',
-            helperText: 'Con el DNI el agricultor entra a la app',
-            errorText: errors[UserFormField.dni],
-          ),
-        )
-      else
-        TextField(
-          key: const ValueKey('field_email'),
-          controller: _email,
-          keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            labelText: 'Correo electrónico',
-            errorText: errors[UserFormField.email],
-          ),
-        ),
-      const SizedBox(height: 16),
-      TextField(
-        key: const ValueKey('field_phone'),
-        controller: _phone,
-        keyboardType: TextInputType.phone,
-        decoration: InputDecoration(
-          labelText: 'Teléfono (opcional)',
-          errorText: errors[UserFormField.phone],
-        ),
-      ),
-      const SizedBox(height: 16),
-      if (isFarmer)
-        ..._farmerFields()
-      else if (_vm.needsZones)
-        ..._zoneFields(),
-      const SizedBox(height: 8),
-      _passwordField(errors[UserFormField.password]),
-      const SizedBox(height: 16),
-      if (_vm.error != null) ...[
-        AdminBanner(message: _vm.error!, isError: true),
-        const SizedBox(height: 16),
-      ],
-      FilledButton.icon(
-        onPressed: _vm.busy ? null : _submit,
-        icon: _vm.busy
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+      const SizedBox(height: 20),
+      AdminCard(
+        title: 'Datos del usuario',
+        subtitle: isFarmer
+            ? 'Identificación y contacto del agricultor'
+            : 'Credenciales y datos de la cuenta',
+        icon: Icons.person_outline,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const ValueKey('field_full_name'),
+              controller: _fullName,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: 'Nombre completo',
+                errorText: errors[UserFormField.fullName],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (isFarmer)
+              TextField(
+                key: const ValueKey('field_dni'),
+                controller: _dni,
+                keyboardType: TextInputType.number,
+                maxLength: 8,
+                decoration: InputDecoration(
+                  labelText: 'DNI (8 números)',
+                  helperText: 'Con el DNI el agricultor entra a la app',
+                  errorText: errors[UserFormField.dni],
+                ),
               )
-            : const Icon(Icons.person_add_alt_1),
-        label: const Text('Crear cuenta'),
+            else
+              TextField(
+                key: const ValueKey('field_email'),
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Correo electrónico',
+                  errorText: errors[UserFormField.email],
+                ),
+              ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('field_phone'),
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: 'Teléfono (opcional)',
+                errorText: errors[UserFormField.phone],
+              ),
+            ),
+            if (isFarmer) ...[
+              const SizedBox(height: 16),
+              ..._farmerFields(),
+            ] else if (_vm.needsZones) ...[
+              const SizedBox(height: 16),
+              ..._zoneFields(),
+            ],
+            const SizedBox(height: 20),
+            Divider(
+              height: 1,
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 16),
+            _passwordField(errors[UserFormField.password]),
+            const SizedBox(height: 20),
+            if (_vm.error != null) ...[
+              AdminBanner(message: _vm.error!, isError: true),
+              const SizedBox(height: 16),
+            ],
+            FilledButton.icon(
+              onPressed: _vm.busy ? null : _submit,
+              icon: _vm.busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.person_add_alt_1),
+              label: const Text('Crear cuenta'),
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -281,49 +306,77 @@ class _RolePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
         for (final role in CreateUserViewModel.creatableRoles)
-          InkWell(
-            key: ValueKey('role_${role.name}'),
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => viewModel.setRole(role),
-            child: Container(
-              width: 150,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+          _roleCard(context, role),
+      ],
+    );
+  }
+
+  Widget _roleCard(BuildContext context, UserRole role) {
+    final scheme = Theme.of(context).colorScheme;
+    final isSelected = viewModel.role == role;
+    return InkWell(
+      key: ValueKey('role_${role.name}'),
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => viewModel.setRole(role),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 160,
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? scheme.primaryContainer.withValues(alpha: 0.4)
+              : scheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? scheme.primary
+                : scheme.outlineVariant.withValues(alpha: 0.6),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: scheme.primary.withValues(alpha: 0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: viewModel.role == role
+                color: isSelected
                     ? scheme.primary
                     : scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  Icon(
-                    _icon(role),
-                    size: 32,
-                    color: viewModel.role == role
-                        ? scheme.onPrimary
-                        : scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    roleLabel(role),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: viewModel.role == role
-                          ? scheme.onPrimary
-                          : scheme.onSurface,
-                    ),
-                  ),
-                ],
+              child: Icon(
+                _icon(role),
+                size: 26,
+                color: isSelected
+                    ? scheme.onPrimary
+                    : scheme.onSurfaceVariant,
               ),
             ),
-          ),
-      ],
+            const SizedBox(height: 10),
+            Text(
+              roleLabel(role),
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? scheme.primary : scheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -337,31 +390,68 @@ class _Created extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final created = viewModel.created!;
     return AdminPage(
       children: [
-        Text('Cuenta creada', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
-        Text(created.loginHint),
-        const SizedBox(height: 16),
-        CopyField(
-          label: created.isDni ? 'DNI' : 'Correo',
-          value: created.loginIdentifier,
-        ),
-        const SizedBox(height: 16),
-        CopyField(label: 'Contraseña', value: viewModel.revealedPassword ?? ''),
-        const SizedBox(height: 8),
-        const Text(
-          'Copie la contraseña ahora: no se volverá a mostrar. '
-          'La persona puede cambiarla más tarde.',
-        ),
-        const SizedBox(height: 24),
-        FilledButton(
-          key: const ValueKey('created_done'),
-          // The section reads the created id and disposes the view model,
-          // which also forgets the one-time password.
-          onPressed: onDone,
-          child: const Text('Listo'),
+        AdminCard(
+          icon: Icons.check_circle_outline,
+          title: 'Cuenta creada con éxito',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Cuenta creada',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(created.loginHint),
+              const SizedBox(height: 20),
+              CopyField(
+                label: created.isDni ? 'DNI' : 'Correo',
+                value: created.loginIdentifier,
+              ),
+              const SizedBox(height: 16),
+              CopyField(
+                label: 'Contraseña',
+                value: viewModel.revealedPassword ?? '',
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 18,
+                      color: scheme.error,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Copie la contraseña ahora: no se volverá a mostrar. '
+                        'La persona puede cambiarla más tarde.',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                key: const ValueKey('created_done'),
+                onPressed: onDone,
+                icon: const Icon(Icons.done),
+                label: const Text('Listo'),
+              ),
+            ],
+          ),
         ),
       ],
     );

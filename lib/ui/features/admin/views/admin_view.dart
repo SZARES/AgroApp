@@ -19,18 +19,21 @@ class AdminView extends StatefulWidget {
     required this.user,
     required this.repository,
     required this.panelsBuilder,
+    this.initialSectionId,
   });
 
   final AppUser user;
   final AdminRepository repository;
   final AdminPanelsBuilder panelsBuilder;
+  final String? initialSectionId;
 
   @override
   State<AdminView> createState() => _AdminViewState();
 }
 
 class _AdminViewState extends State<AdminView> {
-  String _sectionId = CatalogDefs.sections.first.id;
+  late String _sectionId =
+      widget.initialSectionId ?? CatalogDefs.sections.first.id;
 
   AdminSection get _section =>
       CatalogDefs.sections.firstWhere((section) => section.id == _sectionId);

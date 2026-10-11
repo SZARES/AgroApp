@@ -403,4 +403,14 @@ abstract final class CatalogDefs {
     AdminSection(id: 'settings', title: 'Configuración', catalogs: [settings]),
     AdminSection(id: 'audit', title: 'Auditoría'),
   ];
+
+  static AdminSection get zonesSection =>
+      sections.firstWhere((s) => s.id == 'zones');
+  static AdminSection get cropsSection =>
+      sections.firstWhere((s) => s.id == 'crops');
+  static AdminSection get activityTypesSection =>
+      sections.firstWhere((s) => s.id == 'activity_types');
+  static AdminSection get pruningTypesSection =>
+      sections.firstWhere((s) => s.id == 'pruning_types');
 }
+
