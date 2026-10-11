@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/app_loading.dart';
+
 /// Branded screen shown while the saved session is being checked.
 class SplashView extends StatelessWidget {
   const SplashView({super.key});
@@ -22,7 +24,7 @@ class SplashView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            const CircularProgressIndicator(),
+            const AppLoadingIndicator(size: 64),
           ],
         ),
       ),

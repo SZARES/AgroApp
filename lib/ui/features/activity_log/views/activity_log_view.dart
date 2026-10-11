@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/activity.dart';
+import '../../../core/widgets/app_loading.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/step_flow.dart';
@@ -57,7 +58,12 @@ class ActivityLogView extends StatelessWidget {
                 if (viewModel.isLoading)
                   const Padding(
                     padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(
+                      child: AppLoadingCard(
+                        message: 'Cargando actividades…',
+                        compact: true,
+                      ),
+                    ),
                   )
                 else if (viewModel.loadFailed)
                   Text(

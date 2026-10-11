@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/models/incident.dart';
 import '../../../../domain/models/incident_status.dart';
 import '../../../../utils/result.dart';
+import '../../../core/widgets/app_loading.dart';
 import '../view_models/case_status_view_model.dart';
 import 'incident_status_labels.dart';
 
@@ -24,7 +25,9 @@ class CaseStatusView extends StatelessWidget {
           appBar: AppBar(title: const Text('Estado del reporte')),
           body: SafeArea(
             child: viewModel.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: AppLoadingCard(message: 'Cargando reporte…'),
+                  )
                 : viewModel.loadFailed
                 ? const _Message('No pudimos leer este reporte')
                 : detail == null

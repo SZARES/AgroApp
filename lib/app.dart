@@ -38,6 +38,7 @@ import 'ui/features/auth/views/sign_out_flow.dart';
 import 'ui/features/console/views/console_view.dart';
 import 'ui/features/home/view_models/home_view_model.dart';
 import 'ui/features/home/views/farmer_shell.dart';
+import 'ui/features/home/views/fertilization_calendar_view.dart';
 import 'ui/features/home/views/home_view.dart';
 import 'ui/features/incident_report/view_models/case_status_view_model.dart';
 import 'ui/features/incident_report/view_models/incidents_view_model.dart';
@@ -226,10 +227,10 @@ class _FarmerHome extends StatelessWidget {
           photoService: context.read<PhotoService>(),
         );
         return FarmerShell(
-          onSignOut: onSignOut,
           reportBuilder: reportBuilder,
           home: HomeView(
             viewModel: context.read<HomeViewModel>(),
+            onSignOut: onSignOut,
             parcelBuilder: (_) =>
                 _ParcelScreen(repository: context.read<ParcelRepository>()),
             activityBuilder: (_) => _RecordActivityScreen(
@@ -241,6 +242,9 @@ class _FarmerHome extends StatelessWidget {
             caseBuilder: (id) => _CaseScreen(
               repository: context.read<IncidentRepository>(),
               incidentId: id,
+            ),
+            calendarBuilder: (_) => _FertilizationCalendarScreen(
+              repository: context.read<ActivityRepository>(),
             ),
           ),
           activities: _ActivityScreen(
@@ -325,6 +329,25 @@ class _RecordActivityScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => RecordActivityViewModel(repository: repository),
       builder: (context, _) => RecordActivityView(viewModel: context.read()),
+    );
+  }
+}
+
+class _FertilizationCalendarScreen extends StatelessWidget {
+  const _FertilizationCalendarScreen({required this.repository});
+
+  final ActivityRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => StreamViewModel<List<ActivitySummary>>(
+        stream: repository.watchFertilizations(),
+        initial: const [],
+      ),
+      builder: (context, _) => FertilizationCalendarView(
+        viewModel: context.read<StreamViewModel<List<ActivitySummary>>>(),
+      ),
     );
   }
 }

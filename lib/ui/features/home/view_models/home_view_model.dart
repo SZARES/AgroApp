@@ -16,6 +16,7 @@ class HomeViewModel extends ChangeNotifier {
     required SyncEngine syncEngine,
     required String fullName,
   }) : _syncEngine = syncEngine,
+       fullName = fullName.trim(),
        firstName = firstNameOf(fullName) {
     _outboxSubscription = outboxRepository.watchSummary().listen((summary) {
       _summary = summary;
@@ -40,6 +41,9 @@ class HomeViewModel extends ChangeNotifier {
   late final StreamSubscription<SyncSummary> _outboxSubscription;
   late final StreamSubscription<HomeSummary> _homeSubscription;
   bool _isDisposed = false;
+
+  /// Full display name of the signed-in farmer.
+  final String fullName;
 
   /// First given name of the signed-in farmer; empty when unknown.
   final String firstName;

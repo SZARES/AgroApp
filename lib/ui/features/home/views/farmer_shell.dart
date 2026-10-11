@@ -9,7 +9,6 @@ class FarmerShell extends StatefulWidget {
     required this.reports,
     required this.assistances,
     required this.reportBuilder,
-    this.onSignOut,
   });
 
   final Widget home;
@@ -19,8 +18,6 @@ class FarmerShell extends StatefulWidget {
 
   /// Opens the "Reportar problema" flow (push); does not switch tabs.
   final WidgetBuilder reportBuilder;
-
-  final VoidCallback? onSignOut;
 
   @override
   State<FarmerShell> createState() => _FarmerShellState();
@@ -63,25 +60,6 @@ class _FarmerShellState extends State<FarmerShell> {
               ),
             ),
           ),
-          if (widget.onSignOut != null)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: SafeArea(
-                child: IconButton(
-                  onPressed: widget.onSignOut,
-                  tooltip: 'Cerrar sesión',
-                  constraints: const BoxConstraints(
-                    minWidth: 56,
-                    minHeight: 56,
-                  ),
-                  icon: const Icon(
-                    Icons.logout,
-                    semanticLabel: 'Cerrar sesión',
-                  ),
-                ),
-              ),
-            ),
           Positioned(
             left: 16,
             right: 16,

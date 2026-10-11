@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../data/services/photo_service.dart';
 import '../../../../domain/models/incident.dart';
+import '../../../core/widgets/app_loading.dart';
 import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/option_tile.dart';
 import '../../../core/widgets/primary_action_button.dart';
@@ -41,19 +42,27 @@ class IncidentReportView extends StatelessWidget {
       listenable: viewModel,
       builder: (context, _) {
         return PopScope(
-          canPop: viewModel.isAtFirstStep || viewModel.isLoading,
+          canPop:
+              !viewModel.isSaving &&
+              (viewModel.isAtFirstStep || viewModel.isLoading),
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) viewModel.back();
+            if (!didPop && !viewModel.isSaving) viewModel.back();
           },
-          child: Scaffold(
-            appBar: AppBar(title: const Text('Reportar problema')),
-            body: SafeArea(
-              child: viewModel.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _StepBody(
-                      viewModel: viewModel,
-                      onSubmit: () => _submit(context),
-                    ),
+          child: AppLoadingOverlay(
+            visible: viewModel.isSaving,
+            message: 'Guardando reporte…',
+            child: Scaffold(
+              appBar: AppBar(title: const Text('Reportar problema')),
+              body: SafeArea(
+                child: viewModel.isLoading
+                    ? const Center(
+                        child: AppLoadingCard(message: 'Cargando…'),
+                      )
+                    : _StepBody(
+                        viewModel: viewModel,
+                        onSubmit: () => _submit(context),
+                      ),
+              ),
             ),
           ),
         );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_loading.dart';
 import 'primary_action_button.dart';
 
 /// Frame of the one-question-per-screen flows: title bar, the current
@@ -18,6 +19,8 @@ class StepFlowScaffold extends StatelessWidget {
     this.showBack = true,
     this.errorMessage,
     this.notice,
+    this.isBusy = false,
+    this.busyMessage = 'Guardando…',
   });
 
   final String title;
@@ -38,49 +41,57 @@ class StepFlowScaffold extends StatelessWidget {
   /// When set, replaces the flow (missing data to start it).
   final Widget? notice;
 
+  /// Blocks the screen with an animated loading modal (e.g. while saving).
+  final bool isBusy;
+  final String busyMessage;
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: canLeave || isLoading || notice != null,
+      canPop: !isBusy && (canLeave || isLoading || notice != null),
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) onBack();
+        if (!didPop && !isBusy) onBack();
       },
-      child: Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: SafeArea(
-          child: isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : notice ??
-                    ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        body,
-                        if (errorMessage != null) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            errorMessage!,
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Theme.of(context).colorScheme.error,
+      child: AppLoadingOverlay(
+        visible: isBusy,
+        message: busyMessage,
+        child: Scaffold(
+          appBar: AppBar(title: Text(title)),
+          body: SafeArea(
+            child: isLoading
+                ? const Center(child: AppLoadingCard(message: 'Cargando…'))
+                : notice ??
+                      ListView(
+                        padding: const EdgeInsets.all(20),
+                        children: [
+                          body,
+                          if (errorMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              errorMessage!,
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
                             ),
+                          ],
+                          const SizedBox(height: 24),
+                          PrimaryActionButton(
+                            label: primaryLabel,
+                            icon: primaryIcon,
+                            onPressed: onPrimary,
                           ),
+                          if (showBack) ...[
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: isBusy ? null : onBack,
+                              icon: const Icon(Icons.arrow_back, size: 28),
+                              label: const Text('Atrás'),
+                            ),
+                          ],
                         ],
-                        const SizedBox(height: 24),
-                        PrimaryActionButton(
-                          label: primaryLabel,
-                          icon: primaryIcon,
-                          onPressed: onPrimary,
-                        ),
-                        if (showBack) ...[
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: onBack,
-                            icon: const Icon(Icons.arrow_back, size: 28),
-                            label: const Text('Atrás'),
-                          ),
-                        ],
-                      ],
-                    ),
+                      ),
+          ),
         ),
       ),
     );

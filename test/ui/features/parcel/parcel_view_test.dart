@@ -47,7 +47,7 @@ void main() {
     expect(find.byType(FieldMap), findsNothing);
   });
 
-  testWidgets('lists parcels from the repository and draws them on the map', (
+  testWidgets('lists parcels in a grid without the overview map', (
     tester,
   ) async {
     await pumpParcels(tester, const [
@@ -66,13 +66,31 @@ void main() {
       ),
     ]);
 
-    expect(find.byType(FieldMap), findsOneWidget);
-    // Once on the map label and once in the list.
-    expect(find.text('Campo del pozo'), findsNWidgets(2));
-    expect(find.text('Cultivo: Limón · 1,5 ha'), findsOneWidget);
-    expect(find.text('2 ha'), findsOneWidget);
-    expect(find.text('Por enviar'), findsOneWidget);
-    expect(find.text('Bien'), findsOneWidget);
+    expect(find.byType(FieldMap), findsNothing);
+    expect(find.text('Campo del pozo'), findsOneWidget);
+    expect(find.text('Campo nuevo'), findsOneWidget);
+    expect(find.text('Limón'), findsOneWidget);
+    expect(find.text('0,5 ha'), findsOneWidget);
+    expect(find.text('2 ha en total'), findsNothing);
+  });
+
+  testWidgets('tapping a parcel opens its detail', (tester) async {
+    await pumpParcels(tester, const [
+      Parcel(
+        id: 'a',
+        name: 'Campo del pozo',
+        areaHectares: 1.5,
+        cropName: 'Limón',
+      ),
+    ]);
+
+    await tester.tap(find.text('Campo del pozo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detalle del terreno'), findsOneWidget);
+    expect(find.text('1,5 hectáreas'), findsOneWidget);
+    expect(find.text('Limón'), findsOneWidget);
+    expect(find.text('Ninguno'), findsOneWidget);
   });
 
   testWidgets('add flow asks one question per screen and saves locally', (
