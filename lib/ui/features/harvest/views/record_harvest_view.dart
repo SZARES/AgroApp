@@ -33,6 +33,8 @@ class RecordHarvestView extends StatelessWidget {
         return StepFlowScaffold(
           title: 'Registrar cosecha',
           isLoading: vm.isLoading,
+          isBusy: vm.isSaving,
+          busyMessage: 'Guardando cosecha…',
           canLeave: blocked || vm.isAtFirstStep,
           onBack: vm.back,
           showBack: !vm.isAtFirstStep,

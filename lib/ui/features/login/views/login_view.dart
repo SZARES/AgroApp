@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/app_user.dart';
+import '../../../core/widgets/app_loading.dart';
 import '../view_models/login_view_model.dart';
 
 class LoginView extends StatefulWidget {
@@ -65,127 +66,123 @@ class _LoginViewState extends State<LoginView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: ListenableBuilder(
-                listenable: widget.viewModel,
-                builder: (context, _) {
-                  final viewModel = widget.viewModel;
-                  final error = viewModel.error;
-                  final emailError =
-                      error == LoginError.invalidEmail ||
-                      error == LoginError.invalidDni;
-                  final passwordError = error == LoginError.missingPassword;
-                  final bannerError =
-                      error != null && !emailError && !passwordError;
-                  return AutofillGroup(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Icon(
-                          Icons.eco,
-                          size: 72,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Entre a su cuenta',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: _emailController,
-                          autofocus: true,
-                          enabled: !viewModel.isLoading,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          style: const TextStyle(fontSize: 22),
-                          decoration: InputDecoration(
-                            labelText: 'DNI o correo',
-                            helperText:
-                                'Agricultores: su DNI de 8 números. '
-                                'Técnicos y equipo AIDER: su correo.',
-                            helperMaxLines: 3,
-                            helperStyle: const TextStyle(fontSize: 16),
-                            prefixIcon: const Icon(Icons.person_outline),
-                            errorText: emailError
-                                ? LoginView.messageFor(error!)
-                                : null,
-                            errorMaxLines: 3,
-                            errorStyle: const TextStyle(fontSize: 16),
+    return ListenableBuilder(
+      listenable: widget.viewModel,
+      builder: (context, _) {
+        final viewModel = widget.viewModel;
+        final error = viewModel.error;
+        final emailError =
+            error == LoginError.invalidEmail || error == LoginError.invalidDni;
+        final passwordError = error == LoginError.missingPassword;
+        final bannerError = error != null && !emailError && !passwordError;
+
+        return AppLoadingOverlay(
+          visible: viewModel.isLoading,
+          message: 'Entrando…',
+          child: Scaffold(
+            appBar: AppBar(),
+            body: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: AutofillGroup(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Icon(
+                            Icons.eco,
+                            size: 72,
+                            color: theme.colorScheme.primary,
                           ),
-                          onChanged: (_) => viewModel.clearError(),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _passwordController,
-                          enabled: !viewModel.isLoading,
-                          obscureText: _obscure,
-                          textInputAction: TextInputAction.done,
-                          autofillHints: const [AutofillHints.password],
-                          style: const TextStyle(fontSize: 22),
-                          decoration: InputDecoration(
-                            labelText: 'Contraseña',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              tooltip: _obscure
-                                  ? 'Mostrar contraseña'
-                                  : 'Ocultar contraseña',
-                              onPressed: () =>
-                                  setState(() => _obscure = !_obscure),
-                              icon: Icon(
-                                _obscure
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                          const SizedBox(height: 16),
+                          Text(
+                            'Entre a su cuenta',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineMedium,
+                          ),
+                          const SizedBox(height: 24),
+                          TextField(
+                            controller: _emailController,
+                            autofocus: true,
+                            enabled: !viewModel.isLoading,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            style: const TextStyle(fontSize: 22),
+                            decoration: InputDecoration(
+                              labelText: 'DNI o correo',
+                              helperText:
+                                  'Agricultores: su DNI de 8 números. '
+                                  'Técnicos y equipo AIDER: su correo.',
+                              helperMaxLines: 3,
+                              helperStyle: const TextStyle(fontSize: 16),
+                              prefixIcon: const Icon(Icons.person_outline),
+                              errorText: emailError
+                                  ? LoginView.messageFor(error!)
+                                  : null,
+                              errorMaxLines: 3,
+                              errorStyle: const TextStyle(fontSize: 16),
+                            ),
+                            onChanged: (_) => viewModel.clearError(),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _passwordController,
+                            enabled: !viewModel.isLoading,
+                            obscureText: _obscure,
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [AutofillHints.password],
+                            style: const TextStyle(fontSize: 22),
+                            decoration: InputDecoration(
+                              labelText: 'Contraseña',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                tooltip: _obscure
+                                    ? 'Mostrar contraseña'
+                                    : 'Ocultar contraseña',
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
+                              errorText: passwordError
+                                  ? LoginView.messageFor(error!)
+                                  : null,
+                              errorStyle: const TextStyle(fontSize: 16),
+                            ),
+                            onChanged: (_) => viewModel.clearError(),
+                            onSubmitted: (_) => _submit(),
+                          ),
+                          if (bannerError) ...[
+                            const SizedBox(height: 16),
+                            _ErrorBanner(
+                              message: LoginView.messageFor(
+                                error,
+                                dni: viewModel.lastWasDni,
                               ),
                             ),
-                            errorText: passwordError
-                                ? LoginView.messageFor(error!)
-                                : null,
-                            errorStyle: const TextStyle(fontSize: 16),
-                          ),
-                          onChanged: (_) => viewModel.clearError(),
-                          onSubmitted: (_) => _submit(),
-                        ),
-                        if (bannerError) ...[
-                          const SizedBox(height: 16),
-                          _ErrorBanner(
-                            message: LoginView.messageFor(
-                              error,
-                              dni: viewModel.lastWasDni,
-                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          FilledButton(
+                            onPressed: viewModel.isLoading ? null : _submit,
+                            child: const Text('Entrar'),
                           ),
                         ],
-                        const SizedBox(height: 24),
-                        FilledButton(
-                          onPressed: viewModel.isLoading ? null : _submit,
-                          child: viewModel.isLoading
-                              ? const SizedBox.square(
-                                  dimension: 28,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                  ),
-                                )
-                              : const Text('Entrar'),
-                        ),
-                      ],
+                      ),
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

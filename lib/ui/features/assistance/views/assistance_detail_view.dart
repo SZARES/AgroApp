@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/incident.dart';
+import '../../../core/widgets/app_loading.dart';
 import '../../../core/widgets/case_photo_strip.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -26,6 +27,9 @@ class AssistanceDetailView extends StatelessWidget {
           builder: (context, _) {
             if (viewModel.isLoading) {
               return const SkeletonDetail();
+              return const Center(
+                child: AppLoadingCard(message: 'Cargando asistencia…'),
+              );
             }
             final detail = viewModel.value;
             if (viewModel.loadFailed || detail == null) {

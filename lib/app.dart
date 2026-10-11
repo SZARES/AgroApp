@@ -37,6 +37,8 @@ import 'ui/features/auth/views/auth_gate.dart';
 import 'ui/features/auth/views/sign_out_flow.dart';
 import 'ui/features/console/views/console_view.dart';
 import 'ui/features/home/view_models/home_view_model.dart';
+import 'ui/features/home/views/farmer_shell.dart';
+import 'ui/features/home/views/fertilization_calendar_view.dart';
 import 'ui/features/home/views/home_view.dart';
 import 'ui/features/incident_report/view_models/case_status_view_model.dart';
 import 'ui/features/incident_report/view_models/incidents_view_model.dart';
@@ -229,46 +231,45 @@ class _FarmerHome extends StatelessWidget {
           ),
         ),
       ],
-      builder: (context, _) => Stack(
-        children: [
-          HomeView(
+      builder: (context, _) {
+        Widget reportBuilder(BuildContext _) => _ReportScreen(
+          repository: context.read<IncidentRepository>(),
+          photoService: context.read<PhotoService>(),
+        );
+        return FarmerShell(
+          reportBuilder: reportBuilder,
+          home: HomeView(
             viewModel: context.read<HomeViewModel>(),
+            onSignOut: onSignOut,
             parcelBuilder: (_) =>
                 _ParcelScreen(repository: context.read<ParcelRepository>()),
-            activityBuilder: (_) => _ActivityScreen(
+            activityBuilder: (_) => _RecordActivityScreen(
               repository: context.read<ActivityRepository>(),
             ),
             harvestBuilder: (_) =>
                 _HarvestScreen(repository: context.read<HarvestRepository>()),
-            assistanceBuilder: (_) => _AssistanceScreen(
-              repository: context.read<AssistanceRepository>(),
-              photoService: context.read<PhotoService>(),
-            ),
-            reportBuilder: (_) => _ReportScreen(
-              repository: context.read<IncidentRepository>(),
-              photoService: context.read<PhotoService>(),
-            ),
-            reportsBuilder: (_) =>
-                _ReportsScreen(repository: context.read<IncidentRepository>()),
+            reportBuilder: reportBuilder,
             caseBuilder: (id) => _CaseScreen(
               repository: context.read<IncidentRepository>(),
               incidentId: id,
             ),
-          ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: SafeArea(
-              child: IconButton(
-                onPressed: onSignOut,
-                tooltip: 'Cerrar sesión',
-                constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
-                icon: const Icon(Icons.logout, semanticLabel: 'Cerrar sesión'),
-              ),
+            calendarBuilder: (_) => _FertilizationCalendarScreen(
+              repository: context.read<ActivityRepository>(),
             ),
           ),
-        ],
-      ),
+          activities: _ActivityScreen(
+            repository: context.read<ActivityRepository>(),
+            showRegisterButton: false,
+          ),
+          reports: _ReportsScreen(
+            repository: context.read<IncidentRepository>(),
+          ),
+          assistances: _AssistanceScreen(
+            repository: context.read<AssistanceRepository>(),
+            photoService: context.read<PhotoService>(),
+          ),
+        );
+      },
     );
   }
 }
@@ -295,9 +296,13 @@ class _ParcelScreen extends StatelessWidget {
 }
 
 class _ActivityScreen extends StatelessWidget {
-  const _ActivityScreen({required this.repository});
+  const _ActivityScreen({
+    required this.repository,
+    this.showRegisterButton = true,
+  });
 
   final ActivityRepository repository;
+  final bool showRegisterButton;
 
   @override
   Widget build(BuildContext context) {
@@ -308,11 +313,8 @@ class _ActivityScreen extends StatelessWidget {
       ),
       builder: (context, _) => ActivityLogView(
         viewModel: context.read<StreamViewModel<List<ActivitySummary>>>(),
-        recordBuilder: (_) => ChangeNotifierProvider(
-          create: (_) => RecordActivityViewModel(repository: repository),
-          builder: (context, _) =>
-              RecordActivityView(viewModel: context.read()),
-        ),
+        showRegisterButton: showRegisterButton,
+        recordBuilder: (_) => _RecordActivityScreen(repository: repository),
         detailBuilder: (id) => ChangeNotifierProvider(
           create: (_) => StreamViewModel<ActivityDetail?>(
             stream: repository.watchActivity(id),
@@ -322,6 +324,39 @@ class _ActivityScreen extends StatelessWidget {
             viewModel: context.read<StreamViewModel<ActivityDetail?>>(),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RecordActivityScreen extends StatelessWidget {
+  const _RecordActivityScreen({required this.repository});
+
+  final ActivityRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => RecordActivityViewModel(repository: repository),
+      builder: (context, _) => RecordActivityView(viewModel: context.read()),
+    );
+  }
+}
+
+class _FertilizationCalendarScreen extends StatelessWidget {
+  const _FertilizationCalendarScreen({required this.repository});
+
+  final ActivityRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => StreamViewModel<List<ActivitySummary>>(
+        stream: repository.watchFertilizations(),
+        initial: const [],
+      ),
+      builder: (context, _) => FertilizationCalendarView(
+        viewModel: context.read<StreamViewModel<List<ActivitySummary>>>(),
       ),
     );
   }

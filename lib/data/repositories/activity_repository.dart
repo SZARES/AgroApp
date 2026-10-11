@@ -21,6 +21,9 @@ abstract class ActivityRepository {
   /// Every activity of the farmer, newest first.
   Stream<List<ActivitySummary>> watchActivities();
 
+  /// Fertilization ("abono") activities only, newest first.
+  Stream<List<ActivitySummary>> watchFertilizations();
+
   /// One activity; null when it does not exist.
   Stream<ActivityDetail?> watchActivity(String id);
 }
@@ -35,6 +38,8 @@ class LocalActivityRepository implements ActivityRepository {
        _farmerId = farmerId,
        _userId = userId,
        _clock = clock ?? DateTime.now;
+
+  static const fertilizationCode = 'fertilization';
 
   static const _readTables = [
     'activities',
@@ -169,6 +174,10 @@ class LocalActivityRepository implements ActivityRepository {
       watchDerived(_store, _readTables, _loadSummaries);
 
   @override
+  Stream<List<ActivitySummary>> watchFertilizations() =>
+      watchDerived(_store, _readTables, _loadFertilizations);
+
+  @override
   Stream<ActivityDetail?> watchActivity(String id) =>
       watchDerived(_store, _readTables, () => _loadDetail(id));
 
@@ -178,6 +187,31 @@ class LocalActivityRepository implements ActivityRepository {
       'activities',
       where: (r) => cycleToParcel.containsKey(r['crop_cycle_id']),
     );
+    return _summariesFor(rows, cycleToParcel);
+  }
+
+  Future<List<ActivitySummary>> _loadFertilizations() async {
+    final cycleToParcel = await _ownCycleParcels();
+    final typeIds = {
+      for (final t in await _store.list(
+        'activity_types',
+        where: (r) => r['code'] == fertilizationCode,
+      ))
+        t['id'],
+    };
+    final rows = await _store.list(
+      'activities',
+      where: (r) =>
+          cycleToParcel.containsKey(r['crop_cycle_id']) &&
+          typeIds.contains(r['activity_type_id']),
+    );
+    return _summariesFor(rows, cycleToParcel);
+  }
+
+  Future<List<ActivitySummary>> _summariesFor(
+    List<Map<String, dynamic>> rows,
+    Map<String, String> cycleToParcel,
+  ) async {
     rows.sort((a, b) {
       final byDate = '${b['activity_date'] ?? ''}'.compareTo(
         '${a['activity_date'] ?? ''}',

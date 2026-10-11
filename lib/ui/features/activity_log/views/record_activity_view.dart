@@ -30,6 +30,8 @@ class RecordActivityView extends StatelessWidget {
         return StepFlowScaffold(
           title: 'Registrar actividad',
           isLoading: vm.isLoading,
+          isBusy: vm.isSaving,
+          busyMessage: 'Guardando actividad…',
           canLeave: vm.isAtFirstStep,
           onBack: vm.back,
           showBack: !vm.isAtFirstStep,

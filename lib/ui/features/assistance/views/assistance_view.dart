@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/assistance.dart';
+import '../../../core/widgets/app_loading.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -49,9 +50,14 @@ class AssistanceView extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 if (viewModel.isLoading)
-                  const SizedBox(
-                    height: 280,
-                    child: SkeletonList(count: 3),
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: AppLoadingCard(
+                        message: 'Cargando asistencias…',
+                        compact: true,
+                      ),
+                    ),
                   )
                 else if (viewModel.loadFailed)
                   Text(

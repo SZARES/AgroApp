@@ -9,7 +9,6 @@ import 'package:hackathon/data/sync/sync_engine.dart';
 import 'package:hackathon/domain/models/home_summary.dart';
 import 'package:hackathon/domain/models/incident_status.dart';
 import 'package:hackathon/ui/core/theme/app_theme.dart';
-import 'package:hackathon/ui/core/widgets/primary_action_button.dart';
 import 'package:hackathon/ui/features/home/view_models/home_view_model.dart';
 import 'package:hackathon/ui/features/home/views/home_view.dart';
 
@@ -65,16 +64,15 @@ void main() {
         theme: AppTheme.light(),
         home: HomeView(
           viewModel: viewModel,
+          onSignOut: () {},
           parcelBuilder: (_) => const Scaffold(body: Text('Pantalla parcela')),
           activityBuilder: (_) =>
               const Scaffold(body: Text('Pantalla actividad')),
           harvestBuilder: (_) => const Scaffold(body: Text('Pantalla cosecha')),
-          assistanceBuilder: (_) =>
-              const Scaffold(body: Text('Pantalla asistencias')),
           reportBuilder: (_) => const Scaffold(body: Text('Pantalla reporte')),
-          reportsBuilder: (_) =>
-              const Scaffold(body: Text('Pantalla reportes')),
           caseBuilder: (_) => const Scaffold(body: Text('Pantalla caso')),
+          calendarBuilder: (_) =>
+              const Scaffold(body: Text('Pantalla calendario')),
         ),
       ),
     );
@@ -82,7 +80,7 @@ void main() {
   }
 
   testWidgets(
-    'greets the farmer by first name with exactly three main actions',
+    'greets the farmer by first name with a 2x2 action grid',
     (tester) async {
       homeRepository = FakeHomeRepository(
         const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
@@ -90,35 +88,55 @@ void main() {
       await pumpHome(tester);
 
       expect(find.text('Hola, Rosa'), findsOneWidget);
-      expect(find.byType(PrimaryActionButton), findsNWidgets(3));
-      expect(find.text('Registrar actividad'), findsOneWidget);
-      expect(find.text('Reportar problema'), findsOneWidget);
-      expect(find.text('Registrar cosecha'), findsOneWidget);
-      expect(find.text('Mis asistencias'), findsOneWidget);
-      expect(find.text('Todo guardado'), findsOneWidget);
+      expect(find.text('Actividad'), findsOneWidget);
+      expect(find.text('Problema'), findsOneWidget);
+      expect(find.text('Cosecha'), findsOneWidget);
+      expect(find.text('Terreno'), findsOneWidget);
+      expect(find.text('Calendario'), findsOneWidget);
+      expect(find.text('Mis asistencias'), findsNothing);
+      expect(find.text('Mis reportes'), findsNothing);
+      expect(find.text('Todo guardado'), findsNothing);
+      expect(find.byIcon(Icons.cloud_done), findsOneWidget);
     },
   );
+
+  testWidgets('shows an upload sync icon when there are pending records', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      await repository.enqueue(tableName: 'activities', payload: const {});
+    });
+    homeRepository = FakeHomeRepository(
+      const HomeSummary(parcelName: 'Campo', parcelCount: 1),
+    );
+    await pumpHome(tester);
+
+    expect(find.byIcon(Icons.cloud_upload), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_done), findsNothing);
+  });
 
   testWidgets('hides the actions that need a parcel until one exists', (
     tester,
   ) async {
     await pumpHome(tester);
 
-    expect(find.byType(PrimaryActionButton), findsNothing);
-    expect(find.text('Registrar actividad'), findsNothing);
-    expect(find.text('Reportar problema'), findsNothing);
-    expect(find.text('Registrar cosecha'), findsNothing);
+    expect(find.text('Actividad'), findsNothing);
+    expect(find.text('Problema'), findsNothing);
+    expect(find.text('Cosecha'), findsNothing);
+    expect(find.text('Terreno'), findsNothing);
     expect(
       find.textContaining('Agregue su terreno para registrar'),
       findsOneWidget,
     );
-    expect(find.text('Mis asistencias'), findsOneWidget);
-    expect(find.text('Mis reportes'), findsOneWidget);
 
     homeRepository.emit(const HomeSummary(parcelName: 'Campo nuevo'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(PrimaryActionButton), findsNWidgets(3));
+    expect(find.text('Actividad'), findsOneWidget);
+    expect(find.text('Problema'), findsOneWidget);
+    expect(find.text('Cosecha'), findsOneWidget);
+    expect(find.text('Terreno'), findsOneWidget);
+    expect(find.text('Calendario'), findsOneWidget);
   });
 
   testWidgets('shows a plain greeting when the profile has no name', (
@@ -133,13 +151,11 @@ void main() {
     tester,
   ) async {
     await pumpHome(tester);
-    await tester.scrollUntilVisible(
-      find.text('Aún no registra cosechas'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-
     expect(find.text('Toque aquí para agregar su terreno'), findsOneWidget);
+
+    await tester.tap(find.text('Resumen'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Aún no lo registra'), findsOneWidget);
     expect(find.text('Por ahora no tiene recomendaciones'), findsOneWidget);
     expect(find.text('Sin problemas activos'), findsOneWidget);
@@ -164,18 +180,37 @@ void main() {
     );
 
     await pumpHome(tester);
-    await tester.scrollUntilVisible(
-      find.text('150,5 kg'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-
     expect(find.text('Campo del pozo y 1 más'), findsOneWidget);
     expect(find.text('Morropón · La Matanza'), findsOneWidget);
+
+    await tester.tap(find.text('Resumen'));
+    await tester.pumpAndSettle();
+
     expect(find.text('5 de mayo de 2026'), findsOneWidget);
     expect(find.text('Podar ramas secas'), findsOneWidget);
     expect(find.text('Visita programada'), findsOneWidget);
     expect(find.text('150,5 kg'), findsOneWidget);
+  });
+
+  testWidgets('carousel tabs switch between actions and summary', (
+    tester,
+  ) async {
+    homeRepository = FakeHomeRepository(
+      const HomeSummary(parcelName: 'Campo', parcelCount: 1),
+    );
+    await pumpHome(tester);
+
+    expect(find.text('Actividad'), findsOneWidget);
+    expect(find.text('Su resumen'), findsNothing);
+
+    await tester.tap(find.text('Resumen'));
+    await tester.pumpAndSettle();
+    expect(find.text('Su resumen'), findsOneWidget);
+    expect(find.text('Actividad'), findsNothing);
+
+    await tester.tap(find.text('Acciones'));
+    await tester.pumpAndSettle();
+    expect(find.text('Actividad'), findsOneWidget);
   });
 
   testWidgets('updates live when the local summary changes', (tester) async {
@@ -199,45 +234,19 @@ void main() {
     expect(find.text('Pantalla parcela'), findsOneWidget);
   });
 
-  testWidgets('sync indicator reflects the pending count', (tester) async {
-    await tester.runAsync(() async {
-      for (var i = 0; i < 3; i++) {
-        await repository.enqueue(tableName: 'activities', payload: const {});
-      }
-    });
-
-    await pumpHome(tester);
-
-    expect(find.text('3 registros por enviar'), findsOneWidget);
-    expect(find.text('Todo guardado'), findsNothing);
-  });
-
-  testWidgets('sending now uploads pending records once online', (
-    tester,
-  ) async {
-    await tester.runAsync(
-      () => repository.enqueue(tableName: 'activities', payload: const {}),
-    );
-    await pumpHome(tester);
-    expect(find.text('1 registro por enviar'), findsOneWidget);
-
-    connectivity.online = true;
-    await tester.tap(find.text('Enviar ahora'));
-    await tester.pumpAndSettle();
-
-    expect(syncService.batches, hasLength(1));
-    expect(find.text('Todo guardado'), findsOneWidget);
-  });
-
   final destinations = <String, String>{
-    'Registrar actividad': 'Pantalla actividad',
-    'Reportar problema': 'Pantalla reporte',
-    'Registrar cosecha': 'Pantalla cosecha',
-    'Mis asistencias': 'Pantalla asistencias',
+    'Actividad': 'Pantalla actividad',
+    'Problema': 'Pantalla reporte',
+    'Cosecha': 'Pantalla cosecha',
+    'Terreno': 'Pantalla parcela',
+    'Calendario': 'Pantalla calendario',
   };
 
   for (final MapEntry(key: label, value: view) in destinations.entries) {
     testWidgets('tapping "$label" opens its screen', (tester) async {
+      homeRepository = FakeHomeRepository(
+        const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
+      );
       await pumpHome(tester);
 
       await tester.ensureVisible(find.text(label));
@@ -247,19 +256,4 @@ void main() {
       expect(find.text(view), findsOneWidget);
     });
   }
-
-  testWidgets('tapping "Reportar problema" opens the report flow', (
-    tester,
-  ) async {
-    homeRepository = FakeHomeRepository(
-      const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
-    );
-    await pumpHome(tester);
-
-    await tester.ensureVisible(find.text('Reportar problema'));
-    await tester.tap(find.text('Reportar problema'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Pantalla reporte'), findsOneWidget);
-  });
 }

@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/activity.dart';
+import '../../../core/widgets/app_loading.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../../../core/widgets/stream_view_model.dart';
 import '../../../core/widgets/skeleton.dart';
 
-/// "Registrar actividad": the farmer's activities, plus the button that
-/// starts a new one.
+/// The farmer's activities list. Registration starts from the home cards
+/// unless [showRegisterButton] is true.
 class ActivityLogView extends StatelessWidget {
   const ActivityLogView({
     super.key,
     required this.viewModel,
     required this.recordBuilder,
     required this.detailBuilder,
+    this.showRegisterButton = true,
   });
 
   final StreamViewModel<List<ActivitySummary>> viewModel;
@@ -24,6 +26,9 @@ class ActivityLogView extends StatelessWidget {
 
   /// Builds the detail screen of one activity.
   final Widget Function(String activityId) detailBuilder;
+
+  /// When false (tab embed), the list has no top "Registrar" CTA.
+  final bool showRegisterButton;
 
   @override
   Widget build(BuildContext context) {
@@ -38,21 +43,28 @@ class ActivityLogView extends StatelessWidget {
             return ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                PrimaryActionButton(
-                  label: 'Registrar actividad',
-                  icon: Icons.edit_note,
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(builder: recordBuilder),
+                if (showRegisterButton) ...[
+                  PrimaryActionButton(
+                    label: 'Registrar actividad',
+                    icon: Icons.edit_note,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(builder: recordBuilder),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 32),
+                  const SizedBox(height: 32),
+                ],
                 Text('Últimas actividades', style: textTheme.titleLarge),
                 const SizedBox(height: 8),
                 if (viewModel.isLoading)
-                  const SizedBox(
-                    height: 280,
-                    child: SkeletonList(count: 3),
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: AppLoadingCard(
+                        message: 'Cargando actividades…',
+                        compact: true,
+                      ),
+                    ),
                   )
                 else if (viewModel.loadFailed)
                   Text(

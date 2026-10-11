@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/models/harvest.dart';
+import '../../../core/widgets/app_loading.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/step_flow.dart';
@@ -46,9 +47,14 @@ class HarvestView extends StatelessWidget {
                 Text('Cosechas anteriores', style: textTheme.titleLarge),
                 const SizedBox(height: 8),
                 if (viewModel.isLoading)
-                  const SizedBox(
-                    height: 280,
-                    child: SkeletonList(count: 3),
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: AppLoadingCard(
+                        message: 'Cargando cosechas…',
+                        compact: true,
+                      ),
+                    ),
                   )
                 else if (viewModel.loadFailed)
                   Text(

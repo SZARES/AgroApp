@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/app_loading.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../view_models/incidents_view_model.dart';
 import 'incident_status_labels.dart';
@@ -26,7 +27,9 @@ class IncidentsListView extends StatelessWidget {
           listenable: viewModel,
           builder: (context, _) {
             if (viewModel.isLoading) {
-              return const SkeletonList(padding: EdgeInsets.all(20));
+              return const Center(
+                child: AppLoadingCard(message: 'Cargando reportes…'),
+              );
             }
             if (viewModel.loadFailed) {
               return Center(

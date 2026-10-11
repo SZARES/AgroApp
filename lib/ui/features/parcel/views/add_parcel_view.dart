@@ -225,7 +225,10 @@ class _LocationReadyCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.check_circle, color: Color(0xFF8BD450)),
+                Icon(
+                  Icons.check_circle,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(

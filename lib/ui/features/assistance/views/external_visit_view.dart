@@ -41,6 +41,8 @@ class ExternalVisitView extends StatelessWidget {
         return StepFlowScaffold(
           title: 'Registrar visita externa',
           isLoading: vm.isLoading,
+          isBusy: vm.isSaving,
+          busyMessage: 'Guardando visita…',
           canLeave: blocked || vm.isAtFirstStep,
           onBack: vm.back,
           showBack: !vm.isAtFirstStep,
