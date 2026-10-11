@@ -21,7 +21,7 @@ talking to Supabase.
 
 ## Tasks
 - [x] T1 Backend: Edge Function admin-create-user + RPC admin_provision_user, storage staff-insert policies, EXECUTE hardening (dashboard v_* views already exist; check security_invoker in T11)
-- [ ] T2 Data core: Drift schema for catalogs and domain tables (local_id, server_id, sync_status, timestamps, deleted_at), pull + push sync, 5 s poll
+- [x] T2 Data core: Drift schema for catalogs and domain tables (local_id, server_id, sync_status, timestamps, deleted_at), pull + push sync, 5 s poll
 - [ ] T3 Auth + roles routing (farmer, technician, supervisor, admin), responsive shell (mobile vs web)
 - [ ] T4 Farmer home with real data, parcels + map, add land
 - [ ] T5 Sequential activity flow + expenses (offline)
@@ -39,3 +39,4 @@ Parent orchestrates; one bounded writer per task; read-only explorer for backend
 ## Evidence log
 - T1: migration `supabase/migrations/11_admin_provision_and_hardening.sql` applied; Edge Function `admin-create-user` v1 ACTIVE (verify_jwt, admin check, rollback of Auth user on RPC failure); RLS smoke test as farmer OK (role, farmer id, 1 parcel, 1 incident). Advisors: only intentional RLS-helper warnings + leaked-password protection (dashboard setting, not API-togglable).
 - Contract notes for later tasks: `sync_batch` is insert-only and idempotent, rejects provider AIDER; technician writes (incident status, assistance, recommendations) go via PostgREST; storage paths must be `<farmer_id>/...`; no profile auto-creation on signup; order parent-before-child in batches.
+- T2: generic Drift replica (`LocalRecords`) + `LocalStore` + outbox ops (batch/upsert/update) + SyncEngine (5 s tick, push then pull, per-table cursors, 30 s pull). analyze clean; flutter test +64 -5 — the 5 failures are stale placeholder expectations in test/ui/features/home/home_view_test.dart (fail on base too, per writer); to be rewritten when Home becomes real (T4). Unrelated formatting-only edits in app_theme.dart, field_map.dart, parcel_view.dart left uncommitted (revert was denied by the classifier). build_runner needs `--force-jit` here.
