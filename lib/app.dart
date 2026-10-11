@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'data/repositories/home_repository.dart';
+import 'data/repositories/incident_repository.dart';
 import 'data/repositories/location_repository.dart';
 import 'data/repositories/parcel_repository.dart';
+import 'data/services/photo_service.dart';
+import 'data/sync/sync_engine.dart';
 import 'domain/models/app_user.dart';
 import 'domain/models/auth_failure.dart';
 import 'ui/core/theme/app_theme.dart';
@@ -13,6 +16,12 @@ import 'ui/features/auth/views/sign_out_flow.dart';
 import 'ui/features/console/views/console_view.dart';
 import 'ui/features/home/view_models/home_view_model.dart';
 import 'ui/features/home/views/home_view.dart';
+import 'ui/features/incident_report/view_models/case_status_view_model.dart';
+import 'ui/features/incident_report/view_models/incidents_view_model.dart';
+import 'ui/features/incident_report/view_models/report_incident_view_model.dart';
+import 'ui/features/incident_report/views/case_status_view.dart';
+import 'ui/features/incident_report/views/incident_report_view.dart';
+import 'ui/features/incident_report/views/incidents_list_view.dart';
 import 'ui/features/login/view_models/login_view_model.dart';
 import 'ui/features/parcel/view_models/add_parcel_view_model.dart';
 import 'ui/features/parcel/view_models/parcel_view_model.dart';
@@ -133,6 +142,13 @@ class _FarmerHome extends StatelessWidget {
           create: (context) =>
               LocalParcelRepository(store: context.read(), farmerId: farmerId),
         ),
+        Provider<IncidentRepository>(
+          create: (context) => LocalIncidentRepository(
+            store: context.read(),
+            farmerId: farmerId,
+            photoUrlResolver: context.read<SyncEngine>().signedPhotoUrl,
+          ),
+        ),
         ChangeNotifierProvider(
           create: (context) => HomeViewModel(
             outboxRepository: context.read(),
@@ -148,6 +164,16 @@ class _FarmerHome extends StatelessWidget {
             viewModel: context.read<HomeViewModel>(),
             parcelBuilder: (_) =>
                 _ParcelScreen(repository: context.read<ParcelRepository>()),
+            reportBuilder: (_) => _ReportScreen(
+              repository: context.read<IncidentRepository>(),
+              photoService: context.read<PhotoService>(),
+            ),
+            reportsBuilder: (_) =>
+                _ReportsScreen(repository: context.read<IncidentRepository>()),
+            caseBuilder: (id) => _CaseScreen(
+              repository: context.read<IncidentRepository>(),
+              incidentId: id,
+            ),
           ),
           Positioned(
             top: 0,
@@ -183,6 +209,63 @@ class _ParcelScreen extends StatelessWidget {
           locationRepository: context.read<LocationRepository>(),
         ),
       ),
+    );
+  }
+}
+
+class _ReportScreen extends StatelessWidget {
+  const _ReportScreen({required this.repository, required this.photoService});
+
+  final IncidentRepository repository;
+  final PhotoService photoService;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => ReportIncidentViewModel(
+        repository: repository,
+        photoService: photoService,
+      ),
+      builder: (context, _) => IncidentReportView(
+        viewModel: context.read<ReportIncidentViewModel>(),
+        caseBuilder: (id) =>
+            _CaseScreen(repository: repository, incidentId: id),
+      ),
+    );
+  }
+}
+
+class _ReportsScreen extends StatelessWidget {
+  const _ReportsScreen({required this.repository});
+
+  final IncidentRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => IncidentsViewModel(repository: repository),
+      builder: (context, _) => IncidentsListView(
+        viewModel: context.read<IncidentsViewModel>(),
+        caseBuilder: (id) =>
+            _CaseScreen(repository: repository, incidentId: id),
+      ),
+    );
+  }
+}
+
+class _CaseScreen extends StatelessWidget {
+  const _CaseScreen({required this.repository, required this.incidentId});
+
+  final IncidentRepository repository;
+  final String incidentId;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) =>
+          CaseStatusViewModel(repository: repository, incidentId: incidentId),
+      builder: (context, _) =>
+          CaseStatusView(viewModel: context.read<CaseStatusViewModel>()),
     );
   }
 }

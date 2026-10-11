@@ -100,6 +100,25 @@ class FakeSyncService implements SyncService {
     if (failingRows.contains(id)) throw Exception('rejected $id');
     updates.add((table: table, id: id, changes: changes));
   }
+
+  final List<({String bucket, String path, String localPath})> uploads = [];
+
+  /// Storage paths whose upload throws.
+  final Set<String> failingUploads = {};
+
+  @override
+  Future<void> uploadFile({
+    required String bucket,
+    required String path,
+    required String localPath,
+  }) async {
+    if (failingUploads.contains(path)) throw Exception('upload failed: $path');
+    uploads.add((bucket: bucket, path: path, localPath: localPath));
+  }
+
+  @override
+  Future<String> signedUrl(String bucket, String path) async =>
+      'https://signed.test/$bucket/$path';
 }
 
 class FakeConnectivityService implements ConnectivityService {

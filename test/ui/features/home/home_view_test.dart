@@ -70,6 +70,10 @@ void main() {
         home: HomeView(
           viewModel: viewModel,
           parcelBuilder: (_) => const Scaffold(body: Text('Pantalla parcela')),
+          reportBuilder: (_) => const Scaffold(body: Text('Pantalla reporte')),
+          reportsBuilder: (_) =>
+              const Scaffold(body: Text('Pantalla reportes')),
+          caseBuilder: (_) => const Scaffold(body: Text('Pantalla caso')),
         ),
       ),
     );

@@ -37,22 +37,6 @@ class MockActivity {
   final double cost;
 }
 
-class MockCase {
-  const MockCase({
-    required this.id,
-    required this.problem,
-    required this.field,
-    required this.reportedAt,
-    required this.status,
-  });
-
-  final String id;
-  final String problem;
-  final String field;
-  final String reportedAt;
-  final CaseStatus status;
-}
-
 class MockRecommendation {
   const MockRecommendation({required this.text, this.applied = false});
 
@@ -176,23 +160,6 @@ const mockActivities = [
     field: 'Campo del cerro',
     date: '02/10/2026',
     cost: 0,
-  ),
-];
-
-const mockCases = [
-  MockCase(
-    id: 'C-014',
-    problem: 'Plaga en las hojas',
-    field: 'Campo de la quebrada',
-    reportedAt: '07/10/2026',
-    status: CaseStatus.visitScheduled,
-  ),
-  MockCase(
-    id: 'C-009',
-    problem: 'Falta de agua',
-    field: 'Campo del pozo',
-    reportedAt: '01/10/2026',
-    status: CaseStatus.closed,
   ),
 ];
 

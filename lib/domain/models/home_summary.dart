@@ -13,6 +13,7 @@ class HomeSummary {
     this.lastFertilization,
     this.nextRecommendation,
     this.activeIncident,
+    this.activeIncidentId,
     this.harvestCount = 0,
     this.productionKg,
   });
@@ -31,6 +32,9 @@ class HomeSummary {
 
   /// Status of the most recent unresolved problem; null when there is none.
   final IncidentStatus? activeIncident;
+
+  /// Id of that problem, to open its status screen.
+  final String? activeIncidentId;
   final int harvestCount;
 
   /// Sum of the estimated weights of all harvests; null when none has one.
@@ -46,6 +50,7 @@ class HomeSummary {
       other.lastFertilization == lastFertilization &&
       other.nextRecommendation == nextRecommendation &&
       other.activeIncident == activeIncident &&
+      other.activeIncidentId == activeIncidentId &&
       other.harvestCount == harvestCount &&
       other.productionKg == productionKg;
 
@@ -58,6 +63,7 @@ class HomeSummary {
     lastFertilization,
     nextRecommendation,
     activeIncident,
+    activeIncidentId,
     harvestCount,
     productionKg,
   );

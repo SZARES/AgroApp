@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/models/outbox_record.dart';
@@ -75,6 +77,29 @@ class SupabaseSyncService implements SyncService {
         'No row updated in $table (id $id): not visible or missing',
       );
     }
+  }
+
+  @override
+  Future<void> uploadFile({
+    required String bucket,
+    required String path,
+    required String localPath,
+  }) async {
+    await _client.storage
+        .from(bucket)
+        .upload(
+          path,
+          File(localPath),
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+            upsert: true,
+          ),
+        );
+  }
+
+  @override
+  Future<String> signedUrl(String bucket, String path) {
+    return _client.storage.from(bucket).createSignedUrl(path, 3600);
   }
 
   SyncBatchResult _parse(Object? response) {

@@ -7,7 +7,6 @@ import '../../../core/widgets/sync_status_indicator.dart';
 import '../../activity_log/views/activity_log_view.dart';
 import '../../assistance/views/assistance_view.dart';
 import '../../harvest/views/harvest_view.dart';
-import '../../incident_report/views/incident_report_view.dart';
 import '../view_models/home_view_model.dart';
 
 class HomeView extends StatelessWidget {
@@ -15,12 +14,24 @@ class HomeView extends StatelessWidget {
     super.key,
     required this.viewModel,
     required this.parcelBuilder,
+    required this.reportBuilder,
+    required this.reportsBuilder,
+    required this.caseBuilder,
   });
 
   final HomeViewModel viewModel;
 
   /// Builds the "Mi parcela" screen (it owns its own state).
   final WidgetBuilder parcelBuilder;
+
+  /// Builds the "Reportar problema" flow.
+  final WidgetBuilder reportBuilder;
+
+  /// Builds the "Mis reportes" list.
+  final WidgetBuilder reportsBuilder;
+
+  /// Builds the status screen of one report.
+  final Widget Function(String incidentId) caseBuilder;
 
   void _open(BuildContext context, Widget view) {
     Navigator.push(context, MaterialPageRoute<void>(builder: (_) => view));
@@ -69,7 +80,7 @@ class HomeView extends StatelessWidget {
                 PrimaryActionButton(
                   label: 'Reportar problema',
                   icon: Icons.report_problem_outlined,
-                  onPressed: () => _open(context, const IncidentReportView()),
+                  onPressed: () => _open(context, reportBuilder(context)),
                 ),
                 const SizedBox(height: 16),
                 PrimaryActionButton(
@@ -83,6 +94,12 @@ class HomeView extends StatelessWidget {
                   icon: const Icon(Icons.groups_outlined, size: 28),
                   label: const Text('Mis asistencias'),
                 ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => _open(context, reportsBuilder(context)),
+                  icon: const Icon(Icons.fact_check_outlined, size: 28),
+                  label: const Text('Mis reportes'),
+                ),
                 const SizedBox(height: 32),
                 Text('Su resumen', style: textTheme.titleLarge),
                 const SizedBox(height: 12),
@@ -92,7 +109,15 @@ class HomeView extends StatelessWidget {
                     style: textTheme.bodyLarge,
                   )
                 else
-                  _Summary(home: home),
+                  _Summary(
+                    home: home,
+                    onOpenIncident: home.activeIncidentId == null
+                        ? null
+                        : () => _open(
+                            context,
+                            caseBuilder(home.activeIncidentId!),
+                          ),
+                  ),
               ],
             );
           },
@@ -135,9 +160,10 @@ class _ParcelCard extends StatelessWidget {
 }
 
 class _Summary extends StatelessWidget {
-  const _Summary({required this.home});
+  const _Summary({required this.home, this.onOpenIncident});
 
   final HomeSummary home;
+  final VoidCallback? onOpenIncident;
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +192,7 @@ class _Summary extends StatelessWidget {
               ? 'Sin problemas activos'
               : incidentLabel(incident),
           highlight: incident != null,
+          onTap: onOpenIncident,
         ),
         const SizedBox(height: 12),
         _InfoCard(
@@ -202,45 +229,51 @@ class _InfoCard extends StatelessWidget {
     required this.title,
     required this.value,
     this.highlight = false,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String value;
   final bool highlight;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 32,
-              color: highlight
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.primary,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(value, style: theme.textTheme.titleMedium),
-                ],
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 32,
+                color: highlight
+                    ? theme.colorScheme.secondary
+                    : theme.colorScheme.primary,
               ),
-            ),
-          ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(value, style: theme.textTheme.titleMedium),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
