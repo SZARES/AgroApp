@@ -14,6 +14,7 @@ import '../data/services/supabase_admin_service.dart';
 import '../data/services/connectivity_service.dart';
 import '../data/services/supabase_auth_service.dart';
 import '../data/services/supabase_sync_service.dart';
+import '../data/services/photo_service.dart';
 import '../data/services/sync_service.dart';
 import '../data/sync/sync_engine.dart';
 import '../ui/features/auth/view_models/auth_view_model.dart';
@@ -27,6 +28,7 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
     ),
     Provider<AuthService>(create: (_) => SupabaseAuthService(supabaseClient)),
     Provider<SyncService>(create: (_) => SupabaseSyncService(supabaseClient)),
+    Provider<PhotoService>(create: (_) => DevicePhotoService()),
     Provider<ConnectivityService>(create: (_) => DeviceConnectivityService()),
     Provider<LocationRepository>(
       create: (_) => const DeviceLocationRepository(),

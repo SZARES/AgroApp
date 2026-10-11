@@ -18,9 +18,7 @@ abstract class LocationRepository {
 
 /// [LocationRepository] backed by the device GPS (geolocator).
 class DeviceLocationRepository implements LocationRepository {
-  const DeviceLocationRepository({
-    this.timeout = const Duration(seconds: 20),
-  });
+  const DeviceLocationRepository({this.timeout = const Duration(seconds: 20)});
 
   final Duration timeout;
 

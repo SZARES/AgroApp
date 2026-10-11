@@ -1,55 +1,220 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
-import '../../../core/widgets/primary_action_button.dart';
-import '../../../mock/mock_data.dart';
+import '../../../../domain/models/incident.dart';
+import '../../../../domain/models/incident_status.dart';
+import '../view_models/case_status_view_model.dart';
+import 'incident_status_labels.dart';
 
+/// Status of one reported problem: progress, history and photos.
 class CaseStatusView extends StatelessWidget {
-  const CaseStatusView({super.key, required this.caseItem});
+  const CaseStatusView({super.key, required this.viewModel});
 
-  final MockCase caseItem;
+  final CaseStatusViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: viewModel,
+      builder: (context, _) {
+        final detail = viewModel.detail;
+        return Scaffold(
+          appBar: AppBar(title: const Text('Estado del reporte')),
+          body: SafeArea(
+            child: viewModel.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : viewModel.loadFailed
+                ? const _Message('No pudimos leer este reporte')
+                : detail == null
+                ? const _Message('No encontramos este reporte')
+                : _Body(detail: detail, viewModel: viewModel),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Message extends StatelessWidget {
+  const _Message(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Text(text, style: Theme.of(context).textTheme.titleMedium),
+    ),
+  );
+}
+
+class _Body extends StatelessWidget {
+  const _Body({required this.detail, required this.viewModel});
+
+  final IncidentDetail detail;
+  final CaseStatusViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final steps = CaseStatus.values;
-    final currentIndex = steps.indexOf(caseItem.status);
-    final canConfirm = caseItem.status == CaseStatus.attended;
+    final summary = detail.summary;
+    final steps = IncidentStatus.values;
+    final currentIndex = steps.indexOf(summary.status);
+    final reportedAt = summary.reportedAt;
 
-    return Scaffold(
-      appBar: AppBar(title: Text('Caso ${caseItem.id}')),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(caseItem.problem, style: textTheme.headlineMedium),
-            const SizedBox(height: 4),
-            Text(
-              '${caseItem.field} · ${caseItem.reportedAt}',
-              style: textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 24),
-            for (var i = 0; i < steps.length; i++)
-              _TimelineStep(
-                label: caseStatusLabels[steps[i]]!,
-                done: i <= currentIndex,
-                isLast: i == steps.length - 1,
-              ),
-            const SizedBox(height: 24),
-            if (canConfirm)
-              PrimaryActionButton(
-                label: 'Confirmar que ya se atendió',
-                icon: Icons.check_circle_outline,
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Guardado en el celular')),
-                ),
-              )
-            else
-              Text(
-                'Podrá confirmar cuando el técnico marque el caso como atendido.',
-                style: textTheme.bodyLarge,
-              ),
-          ],
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text(summary.symptom, style: textTheme.headlineMedium),
+        const SizedBox(height: 4),
+        Text(
+          reportedAt == null
+              ? summary.parcelName
+              : '${summary.parcelName} · ${formatIncidentDate(reportedAt)}',
+          style: textTheme.bodyLarge,
         ),
+        const SizedBox(height: 12),
+        _SyncChip(isPending: summary.isPending),
+        if (detail.description != null) ...[
+          const SizedBox(height: 16),
+          Text(detail.description!, style: textTheme.bodyLarge),
+        ],
+        const SizedBox(height: 24),
+        for (var i = 0; i < steps.length; i++)
+          _TimelineStep(
+            label: incidentStatusName(steps[i]),
+            done: i <= currentIndex,
+            isLast: i == steps.length - 1,
+          ),
+        if (detail.photos.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text('Fotos', style: textTheme.titleLarge),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 140,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: detail.photos.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, i) => _PhotoTile(
+                photo: detail.photos[i],
+                resolveUrl: viewModel.photoUrl,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        Text('Historial', style: textTheme.titleLarge),
+        const SizedBox(height: 12),
+        if (detail.history.isEmpty)
+          Text(
+            summary.isPending
+                ? 'El historial aparecerá cuando el reporte se envíe.'
+                : 'Todavía no hay cambios.',
+            style: textTheme.bodyLarge,
+          )
+        else
+          for (final entry in detail.history) _HistoryTile(entry: entry),
+      ],
+    );
+  }
+}
+
+class _SyncChip extends StatelessWidget {
+  const _SyncChip({required this.isPending});
+
+  final bool isPending;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Chip(
+        avatar: Icon(
+          isPending ? Icons.cloud_upload_outlined : Icons.cloud_done_outlined,
+          color: isPending ? scheme.secondary : scheme.primary,
+        ),
+        label: Text(
+          isPending ? 'Guardado en el teléfono, por enviar' : 'Enviado',
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryTile extends StatelessWidget {
+  const _HistoryTile({required this.entry});
+
+  final IncidentHistoryEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final changedAt = entry.changedAt;
+    final who = entry.changedByName;
+    final meta = [
+      ?changedAt == null ? null : formatIncidentDate(changedAt),
+      ?who,
+    ].join(' · ');
+    return Card(
+      child: ListTile(
+        leading: Icon(incidentStatusIcon(entry.status), size: 32),
+        title: Text(
+          incidentStatusName(entry.status),
+          style: textTheme.titleMedium,
+        ),
+        subtitle: Text(
+          [if (meta.isNotEmpty) meta, ?entry.comment].join('\n'),
+          style: textTheme.bodyMedium,
+        ),
+        isThreeLine: entry.comment != null,
+      ),
+    );
+  }
+}
+
+class _PhotoTile extends StatelessWidget {
+  const _PhotoTile({required this.photo, required this.resolveUrl});
+
+  final IncidentPhotoInfo photo;
+  final Future<String?> Function(String storagePath) resolveUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final local = photo.localPath;
+    final hasLocal = local != null && File(local).existsSync();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: hasLocal
+            ? Image.file(File(local), fit: BoxFit.cover)
+            : FutureBuilder<String?>(
+                future: resolveUrl(photo.storagePath),
+                builder: (context, snapshot) {
+                  final url = snapshot.data;
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (url == null) {
+                    return const ColoredBox(
+                      color: Colors.black26,
+                      child: Icon(Icons.image_not_supported_outlined, size: 40),
+                    );
+                  }
+                  return Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const ColoredBox(
+                      color: Colors.black26,
+                      child: Icon(Icons.image_not_supported_outlined, size: 40),
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }

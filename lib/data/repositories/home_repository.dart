@@ -72,6 +72,8 @@ class LocalHomeRepository implements HomeRepository {
       for (final h in harvests) ?_toDouble(h['estimated_weight_kg']),
     ];
 
+    final activeIncident = await _activeIncident();
+
     return HomeSummary(
       parcelName: parcels.isEmpty ? null : '${parcels.first['name']}',
       parcelCount: parcels.length,
@@ -83,7 +85,12 @@ class LocalHomeRepository implements HomeRepository {
       locationLabel: await _locationLabel(),
       lastFertilization: _latest(fertilizations, 'activity_date'),
       nextRecommendation: await _nextRecommendation(),
-      activeIncident: await _activeIncident(),
+      activeIncident: activeIncident?['status'] == null
+          ? null
+          : IncidentStatus.tryParse(activeIncident!['status']),
+      activeIncidentId: activeIncident == null
+          ? null
+          : '${activeIncident['id']}',
       harvestCount: harvests.length,
       productionKg: weights.isEmpty ? null : weights.reduce((a, b) => a + b),
     );
@@ -126,7 +133,7 @@ class LocalHomeRepository implements HomeRepository {
   }
 
   /// Status of the most recently reported unresolved problem.
-  Future<IncidentStatus?> _activeIncident() async {
+  Future<Map<String, dynamic>?> _activeIncident() async {
     final open = await _store.list(
       'incidents',
       where: (r) =>
@@ -138,7 +145,7 @@ class LocalHomeRepository implements HomeRepository {
       (a, b) =>
           '${b['reported_at'] ?? ''}'.compareTo('${a['reported_at'] ?? ''}'),
     );
-    return IncidentStatus.tryParse(open.first['status']);
+    return open.first;
   }
 
   DateTime? _latest(List<Map<String, dynamic>> rows, String column) {

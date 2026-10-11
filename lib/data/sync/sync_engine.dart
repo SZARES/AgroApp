@@ -10,6 +10,12 @@ import '../services/connectivity_service.dart';
 import '../services/sync_service.dart';
 import 'sync_tables.dart';
 
+/// Payload field holding the device file of a photo awaiting upload.
+const localPathKey = 'local_path';
+
+/// Private Storage bucket of incident photos.
+const photoBucket = 'incidents';
+
 class SyncReport {
   const SyncReport({this.synced = 0, this.failed = 0});
 
@@ -198,12 +204,25 @@ class SyncEngine {
   }
 
   Future<SyncReport> _pushBatch(List<OutboxRecord> batch) async {
+    final byId = {for (final record in batch) record.id: record};
+    var uploadFailures = 0;
+    final sendable = <OutboxRecord>[];
+    for (final record in batch) {
+      try {
+        sendable.add(await _withUploadedFile(record));
+      } catch (error) {
+        // A failed upload only holds back its own record; it is retried later.
+        uploadFailures++;
+        await _repository.markFailed(record.id, error.toString());
+      }
+    }
+    if (sendable.isEmpty) return SyncReport(failed: uploadFailures);
+
     final result = await _syncService.syncBatch(
       deviceId: await _repository.deviceId(),
-      records: batch,
+      records: sendable,
     );
-    final byId = {for (final record in batch) record.id: record};
-    final unresolved = byId.keys.toSet();
+    final unresolved = {for (final record in sendable) record.id};
 
     final synced = result.syncedIds.where(unresolved.remove).toList();
     await _repository.markSynced(synced);
@@ -219,7 +238,33 @@ class SyncEngine {
     failed += unresolved.length;
     await _markFailed(unresolved, 'Record missing from the sync response');
 
-    return SyncReport(synced: synced.length, failed: failed);
+    return SyncReport(synced: synced.length, failed: failed + uploadFailures);
+  }
+
+  /// Photo rows carry the device file in `local_path`: the file goes to the
+  /// private bucket first, then the row is sent without that local-only field.
+  Future<OutboxRecord> _withUploadedFile(OutboxRecord record) async {
+    final localPath = record.payload[localPathKey];
+    if (localPath is! String) return record;
+    final storagePath = record.payload['storage_path'];
+    if (storagePath is! String) {
+      throw StateError('Photo row without storage_path');
+    }
+    await _syncService.uploadFile(
+      bucket: photoBucket,
+      path: storagePath,
+      localPath: localPath,
+    );
+    return record.copyWith(payload: {...record.payload}..remove(localPathKey));
+  }
+
+  /// Short-lived URL for a private photo (the farmer's own incident photos).
+  Future<String?> signedPhotoUrl(String storagePath) async {
+    try {
+      return await _syncService.signedUrl(photoBucket, storagePath);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _pushSingle(OutboxRecord record) {

@@ -39,4 +39,15 @@ abstract interface class SyncService {
 
   /// PostgREST update of one row; throws when no row was changed.
   Future<void> updateRow(String table, String id, Map<String, dynamic> changes);
+
+  /// Uploads the file at [localPath] to the private Storage [bucket] under
+  /// [path] (overwrites, so a retry is idempotent). Throws on failure.
+  Future<void> uploadFile({
+    required String bucket,
+    required String path,
+    required String localPath,
+  });
+
+  /// Short-lived URL to read a private Storage object.
+  Future<String> signedUrl(String bucket, String path);
 }
