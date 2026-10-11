@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Builds the console layout around a section's list panel and main area.
 typedef AdminPanelsBuilder = Widget Function(Widget listPanel, Widget mainArea);
@@ -18,13 +19,13 @@ String formatDate(DateTime value) {
   return '${two(local.day)}/${two(local.month)}/${local.year}';
 }
 
-/// Centered spinner for list and detail loading states.
+/// Skeleton for list and detail loading states.
 class AdminLoading extends StatelessWidget {
   const AdminLoading({super.key});
 
   @override
   Widget build(BuildContext context) =>
-      const Center(child: CircularProgressIndicator());
+      const SkeletonList(padding: EdgeInsets.all(16));
 }
 
 /// Honest error with a retry button.

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/aider_shell.dart';
+import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../view_models/technician_case_view_model.dart';
 import '../view_models/technician_cases_view_model.dart';
 import 'case_widgets.dart';
@@ -33,9 +35,10 @@ class TechnicianWorkspace extends StatelessWidget {
             title: viewModel.openCount == 1
                 ? '1 caso abierto'
                 : '${viewModel.openCount} casos abiertos',
-            items: caseListItems(viewModel.cases),
+            header: CaseFilterBar(viewModel: viewModel),
+            items: caseListItems(viewModel.filteredCases),
             selectedId: selectedId,
-            emptyMessage: 'No hay casos en su zona por ahora.',
+            emptyMessage: emptyCasesMessage(viewModel.filter),
             onSelect: (id) {
               viewModel.select(id);
               final scaffold = Scaffold.maybeOf(context);
@@ -44,9 +47,13 @@ class TechnicianWorkspace extends StatelessWidget {
               }
             },
             body: viewModel.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const SkeletonList()
                 : viewModel.loadFailed
-                ? const Center(child: Text('No pudimos leer los casos'))
+                ? const EmptyState(
+                    icon: Icons.error_outline,
+                    title: 'No pudimos leer los casos',
+                    message: 'Cierre esta pantalla y vuelva a abrirla.',
+                  )
                 : null,
           ),
         );

@@ -11,6 +11,7 @@ import '../../../core/widgets/option_tile.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../view_models/external_visit_view_model.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Registrar visita externa": a visit from SENASA or another institution,
 /// one question per screen, saved on the device first.
@@ -274,7 +275,7 @@ class _PhotosStep extends StatelessWidget {
           ),
         if (vm.photos.isNotEmpty) const SizedBox(height: 16),
         if (vm.isPickingPhoto)
-          const Center(child: CircularProgressIndicator())
+          const Skeleton(child: SkeletonBox(height: 64))
         else if (vm.canAddPhoto) ...[
           PrimaryActionButton(
             label: 'Tomar foto',

@@ -4,6 +4,7 @@ import '../../../core/widgets/app_loading.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../view_models/incidents_view_model.dart';
 import 'incident_status_labels.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Mis reportes": every problem the farmer reported, newest first.
 class IncidentsListView extends StatelessWidget {

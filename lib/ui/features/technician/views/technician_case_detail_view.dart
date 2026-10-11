@@ -5,6 +5,7 @@ import '../../../../domain/models/incident_status.dart';
 import '../../../../domain/models/technician_case.dart';
 import '../../../../utils/result.dart';
 import '../../../core/widgets/case_photo_strip.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../incident_report/views/incident_status_labels.dart';
 import '../view_models/technician_case_view_model.dart';
 import 'case_dialogs.dart';
@@ -37,9 +38,7 @@ class TechnicianCaseBody extends StatelessWidget {
       listenable: viewModel,
       builder: (context, _) {
         final detail = viewModel.detail;
-        if (viewModel.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+        if (viewModel.isLoading) return const SkeletonDetail();
         if (viewModel.loadFailed) {
           return const _Message('No pudimos leer este caso');
         }
@@ -64,20 +63,6 @@ class _Message extends StatelessWidget {
   );
 }
 
-String _failureText(Object error) {
-  if (error is TechnicianException) {
-    return switch (error.failure) {
-      TechnicianFailure.notFound => 'No encontramos este caso',
-      TechnicianFailure.invalidTransition =>
-        'Este caso ya no admite ese cambio',
-      TechnicianFailure.noCategory =>
-        'Faltan los tipos de asistencia. Conéctese una vez para cargarlos',
-      TechnicianFailure.emptyText => 'Escriba el texto antes de guardar',
-    };
-  }
-  return 'No pudimos guardar. Intente otra vez';
-}
-
 class _Content extends StatelessWidget {
   const _Content({required this.detail, required this.viewModel});
 
@@ -92,7 +77,7 @@ class _Content extends StatelessWidget {
     final result = await action();
     final message = switch (result) {
       Ok() => 'Guardado en el dispositivo. Se enviará con conexión.',
-      Error(:final error) => _failureText(error),
+      Error(:final error) => technicianFailureText(error),
     };
     messenger
       ..hideCurrentSnackBar()

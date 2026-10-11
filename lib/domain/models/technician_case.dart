@@ -113,6 +113,7 @@ class AssistanceDraft {
     this.subtypeId,
     this.recommendation = '',
     this.nextReview,
+    this.parcelId,
   });
 
   final String categoryId;
@@ -122,6 +123,9 @@ class AssistanceDraft {
   /// Optional recommendation left for the farmer.
   final String recommendation;
   final DateTime? nextReview;
+
+  /// Parcel the assistance was given on (assistance outside a case).
+  final String? parcelId;
 }
 
 /// Parcels of the technician and the case a pin opens, per parcel.
@@ -138,7 +142,13 @@ class TechnicianMapData {
   final Map<String, String> caseByParcel;
 }
 
-enum TechnicianFailure { notFound, invalidTransition, noCategory, emptyText }
+enum TechnicianFailure {
+  notFound,
+  farmerNotFound,
+  invalidTransition,
+  noCategory,
+  emptyText,
+}
 
 class TechnicianException implements Exception {
   const TechnicianException(this.failure);

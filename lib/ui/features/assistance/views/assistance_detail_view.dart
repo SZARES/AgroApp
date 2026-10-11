@@ -8,6 +8,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../view_models/assistance_detail_view_model.dart';
 import 'assistance_view.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Real data of one assistance: observation, recommendations, next review.
 class AssistanceDetailView extends StatelessWidget {
@@ -25,6 +26,7 @@ class AssistanceDetailView extends StatelessWidget {
           listenable: viewModel,
           builder: (context, _) {
             if (viewModel.isLoading) {
+              return const SkeletonDetail();
               return const Center(
                 child: AppLoadingCard(message: 'Cargando asistencia…'),
               );

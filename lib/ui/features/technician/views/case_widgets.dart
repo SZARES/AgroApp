@@ -7,10 +7,28 @@ import '../../../core/widgets/field_map.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../incident_report/views/incident_status_labels.dart';
 import '../../parcel/view_models/parcel_map_projection.dart';
+import '../view_models/technician_cases_view_model.dart';
 
 const _urgentColor = Color(0xFFC62828);
 const _warningColor = Color(0xFFF0701E);
 const _doneColor = Color(0xFF2E7D32);
+
+/// Plain-language message for a failed technician action.
+String technicianFailureText(Object error) {
+  if (error is TechnicianException) {
+    return switch (error.failure) {
+      TechnicianFailure.notFound => 'No encontramos este caso',
+      TechnicianFailure.farmerNotFound =>
+        'No encontramos a este agricultor o su parcela',
+      TechnicianFailure.invalidTransition =>
+        'Este caso ya no admite ese cambio',
+      TechnicianFailure.noCategory =>
+        'Faltan los tipos de asistencia. Conéctese una vez para cargarlos',
+      TechnicianFailure.emptyText => 'Escriba el texto antes de guardar',
+    };
+  }
+  return 'No pudimos guardar. Intente otra vez';
+}
 
 String priorityLabel(CasePriority priority) => switch (priority) {
   CasePriority.high => 'Urgente',
@@ -45,10 +63,7 @@ class CaseChips extends StatelessWidget {
           color: statusColor(context, item.status),
         ),
         if (item.isOpen && item.priority == CasePriority.high)
-          StatusBadge(
-            label: priorityLabel(item.priority),
-            color: _urgentColor,
-          ),
+          StatusBadge(label: priorityLabel(item.priority), color: _urgentColor),
         if (item.photoCount > 0)
           Tooltip(
             message: '${item.photoCount} fotos',
@@ -71,6 +86,41 @@ class CaseChips extends StatelessWidget {
     );
   }
 }
+
+/// Chips that filter the alert list; each shows how many cases it holds.
+class CaseFilterBar extends StatelessWidget {
+  const CaseFilterBar({super.key, required this.viewModel});
+
+  final TechnicianCasesViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    // One scrollable line: chips never wrap into ragged rows in the narrow
+    // list panel, and no checkmark so selecting does not shift their widths.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final filter in CaseFilter.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                showCheckmark: false,
+                label: Text('${filter.label} (${viewModel.countFor(filter)})'),
+                selected: viewModel.filter == filter,
+                onSelected: (_) => viewModel.setFilter(filter),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Message of an empty alert list, aware of the active filter.
+String emptyCasesMessage(CaseFilter filter) => filter == CaseFilter.all
+    ? 'No hay casos en su zona por ahora.'
+    : 'No hay casos con este filtro.';
 
 /// Selectable cards of the alert inbox.
 List<AiderListItem> caseListItems(List<TechnicianCase> cases) {

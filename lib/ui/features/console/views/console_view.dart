@@ -19,6 +19,11 @@ import '../../admin/views/users/users_section.dart';
 import '../../supervisor/views/supervisor_dashboard_view.dart';
 import '../../technician/view_models/technician_case_view_model.dart';
 import '../../technician/view_models/technician_cases_view_model.dart';
+import '../../technician/view_models/technician_dashboard_view_model.dart';
+import '../../technician/view_models/technician_farmer_view_model.dart';
+import '../../technician/view_models/technician_farmers_view_model.dart';
+import '../../technician/views/technician_dashboard_view.dart';
+import '../../technician/views/technician_farmers_view.dart';
 import '../../technician/views/technician_workspace.dart';
 import '../console_modules.dart';
 
@@ -60,11 +65,11 @@ class _ConsoleViewState extends State<ConsoleView> {
     }
   }
 
-  /// The technician's alert inbox when the app provides one (tests may not).
-  TechnicianCasesViewModel? _technicianCases(BuildContext context) {
+  /// A technician-scoped object when the app provides one (tests may not).
+  T? _technicianScoped<T>(BuildContext context) {
     if (widget.user.role != UserRole.technician) return null;
     try {
-      return context.read<TechnicianCasesViewModel>();
+      return context.read<T>();
     } on ProviderNotFoundException {
       return null;
     }
@@ -85,7 +90,7 @@ class _ConsoleViewState extends State<ConsoleView> {
 
   Widget _scaffold(
     AiderNavItem module,
-    Widget listPanel,
+    Widget? listPanel,
     Widget mainArea, {
     int alertCount = 0,
   }) {
@@ -103,6 +108,80 @@ class _ConsoleViewState extends State<ConsoleView> {
       listPanel: listPanel,
       mainArea: mainArea,
     );
+  }
+
+  /// Opens a case of the technician's inbox in the alerts module.
+  void _openAlert(TechnicianCasesViewModel cases, String caseId) {
+    cases.select(caseId);
+    _select(ConsoleModules.alerts.id);
+  }
+
+  /// The technician's own modules, or null when [module] is not one of them
+  /// or the app did not provide the data (tests may not).
+  Widget? _technicianModule(BuildContext context, AiderNavItem module) {
+    final cases = _technicianScoped<TechnicianCasesViewModel>(context);
+    if (cases == null) return null;
+    final repository = context.read<TechnicianRepository>();
+
+    if (module.id == ConsoleModules.home.id) {
+      final dashboard = _technicianScoped<TechnicianDashboardViewModel>(
+        context,
+      );
+      if (dashboard != null) {
+        return ListenableBuilder(
+          listenable: cases,
+          builder: (context, _) => _scaffold(
+            module,
+            null,
+            AiderMainArea(
+              child: TechnicianDashboardBody(
+                dashboard: dashboard,
+                cases: cases,
+                onOpenCase: (id) => _openAlert(cases, id),
+              ),
+            ),
+            alertCount: cases.openCount,
+          ),
+        );
+      }
+    }
+    if (module.id == ConsoleModules.home.id ||
+        module.id == ConsoleModules.alerts.id) {
+      return TechnicianWorkspace(
+        viewModel: cases,
+        caseViewModelBuilder: (id) =>
+            TechnicianCaseViewModel(repository: repository, caseId: id),
+        panelsBuilder: (listPanel, mainArea) => _scaffold(
+          module,
+          listPanel,
+          mainArea,
+          alertCount: cases.openCount,
+        ),
+      );
+    }
+    if (module.id == ConsoleModules.farmers.id) {
+      final farmers = _technicianScoped<TechnicianFarmersViewModel>(context);
+      if (farmers != null) {
+        return ListenableBuilder(
+          listenable: cases,
+          builder: (context, _) => TechnicianFarmersWorkspace(
+            viewModel: farmers,
+            farmerViewModelBuilder: (id) => TechnicianFarmerViewModel(
+              repository: repository,
+              farmerId: id,
+            ),
+            onOpenCase: (id) => _openAlert(cases, id),
+            panelsBuilder: (listPanel, mainArea) => _scaffold(
+              module,
+              listPanel,
+              mainArea,
+              alertCount: cases.openCount,
+            ),
+          ),
+        );
+      }
+    }
+    return null;
   }
 
   @override
@@ -193,23 +272,8 @@ class _ConsoleViewState extends State<ConsoleView> {
         );
       }
     }
-    final cases = _technicianCases(context);
-    if (cases != null &&
-        (module.id == ConsoleModules.home.id ||
-            module.id == ConsoleModules.alerts.id)) {
-      final repository = context.read<TechnicianRepository>();
-      return TechnicianWorkspace(
-        viewModel: cases,
-        caseViewModelBuilder: (id) =>
-            TechnicianCaseViewModel(repository: repository, caseId: id),
-        panelsBuilder: (listPanel, mainArea) => _scaffold(
-          module,
-          listPanel,
-          mainArea,
-          alertCount: cases.openCount,
-        ),
-      );
-    }
+    final technician = _technicianModule(context, module);
+    if (technician != null) return technician;
     if (module.id == ConsoleModules.home.id) {
       final supervisorRepository = _supervisorRepository(context);
       if (supervisorRepository != null) {

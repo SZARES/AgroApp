@@ -8,6 +8,7 @@ import '../../../../utils/result.dart';
 import '../../../core/widgets/app_loading.dart';
 import '../view_models/case_status_view_model.dart';
 import 'incident_status_labels.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Status of one reported problem: progress, history and photos.
 class CaseStatusView extends StatelessWidget {
@@ -400,7 +401,7 @@ class _PhotoTile extends StatelessWidget {
                 builder: (context, snapshot) {
                   final url = snapshot.data;
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Skeleton(child: SkeletonBox());
                   }
                   if (url == null) {
                     return const ColoredBox(

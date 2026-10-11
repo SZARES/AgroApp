@@ -6,6 +6,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../../../core/widgets/stream_view_model.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Registrar cosecha": the farmer's previous harvests, plus the button that
 /// starts a new one.

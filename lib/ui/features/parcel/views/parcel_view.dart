@@ -53,9 +53,13 @@ class ParcelView extends StatelessWidget {
           listenable: viewModel,
           builder: (context, _) {
             if (viewModel.isLoading) {
+<<<<<<< HEAD
+              return const SkeletonList(padding: EdgeInsets.all(20), count: 3);
+=======
               return const Center(
                 child: AppLoadingCard(message: 'Cargando terrenos…'),
               );
+>>>>>>> d9ba5dd8868b47d27c515503545a52710b1512e0
             }
             if (viewModel.loadFailed) {
               return const EmptyState(

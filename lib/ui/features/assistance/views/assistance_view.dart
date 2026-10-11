@@ -7,6 +7,7 @@ import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../../../core/widgets/stream_view_model.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Mis asistencias": every assistance of the farmer (AIDER, SENASA, other),
 /// plus the button to record an external visit.
