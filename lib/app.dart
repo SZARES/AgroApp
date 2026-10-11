@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'data/repositories/home_repository.dart';
+import 'data/repositories/parcel_repository.dart';
 import 'domain/models/app_user.dart';
 import 'domain/models/auth_failure.dart';
 import 'ui/core/theme/app_theme.dart';
@@ -11,6 +13,9 @@ import 'ui/features/console/views/console_view.dart';
 import 'ui/features/home/view_models/home_view_model.dart';
 import 'ui/features/home/views/home_view.dart';
 import 'ui/features/login/view_models/login_view_model.dart';
+import 'ui/features/parcel/view_models/add_parcel_view_model.dart';
+import 'ui/features/parcel/view_models/parcel_view_model.dart';
+import 'ui/features/parcel/views/parcel_view.dart';
 import 'ui/features/login/views/login_view.dart';
 import 'ui/features/technician/views/technician_home_view.dart';
 import 'ui/features/welcome/views/welcome_view.dart';
@@ -30,8 +35,8 @@ class AgroApp extends StatelessWidget {
             viewModel: auth,
             onSignOut: () => confirmAndSignOut(context, auth),
             signedOutBuilder: (_) => const _Welcome(),
-            farmerBuilder: (_, _, onSignOut) =>
-                _FarmerHome(onSignOut: onSignOut),
+            farmerBuilder: (_, user, onSignOut) =>
+                _FarmerHome(user: user, onSignOut: onSignOut),
             technicianMobileBuilder: (_, _, onSignOut) =>
                 TechnicianHomeView(onSignOut: onSignOut),
             consoleBuilder: (_, user, onSignOut) =>
@@ -109,20 +114,40 @@ class _Login extends StatelessWidget {
 }
 
 class _FarmerHome extends StatelessWidget {
-  const _FarmerHome({required this.onSignOut});
+  const _FarmerHome({required this.user, required this.onSignOut});
 
+  final AppUser user;
   final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => HomeViewModel(
-        outboxRepository: context.read(),
-        syncEngine: context.read(),
-      ),
+    final farmerId = user.farmerId ?? '';
+    return MultiProvider(
+      providers: [
+        Provider<HomeRepository>(
+          create: (context) =>
+              LocalHomeRepository(store: context.read(), farmerId: farmerId),
+        ),
+        Provider<ParcelRepository>(
+          create: (context) =>
+              LocalParcelRepository(store: context.read(), farmerId: farmerId),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => HomeViewModel(
+            outboxRepository: context.read(),
+            homeRepository: context.read(),
+            syncEngine: context.read(),
+            fullName: user.fullName,
+          ),
+        ),
+      ],
       builder: (context, _) => Stack(
         children: [
-          HomeView(viewModel: context.read<HomeViewModel>()),
+          HomeView(
+            viewModel: context.read<HomeViewModel>(),
+            parcelBuilder: (_) =>
+                _ParcelScreen(repository: context.read<ParcelRepository>()),
+          ),
           Positioned(
             top: 0,
             right: 0,
@@ -136,6 +161,26 @@ class _FarmerHome extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ParcelScreen extends StatelessWidget {
+  const _ParcelScreen({required this.repository});
+
+  final ParcelRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => ParcelViewModel(repository: repository),
+      builder: (context, _) => ParcelView(
+        viewModel: context.read<ParcelViewModel>(),
+        // Device GPS needs a location plugin; until then the land is saved
+        // without coordinates.
+        addParcelViewModelBuilder: () =>
+            AddParcelViewModel(repository: repository),
       ),
     );
   }

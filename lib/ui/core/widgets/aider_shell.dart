@@ -188,12 +188,20 @@ class AiderListItem {
     required this.title,
     this.subtitle,
     this.leading,
+    this.footer,
+    this.searchText,
   });
 
   final String id;
   final String title;
   final String? subtitle;
   final Widget? leading;
+
+  /// Shown under the subtitle (for example status chips).
+  final Widget? footer;
+
+  /// Extra text the list search also matches (email, DNI, ...).
+  final String? searchText;
 }
 
 /// Middle panel: a search field above selectable cards.
@@ -205,7 +213,15 @@ class AiderListPanel extends StatefulWidget {
     required this.selectedId,
     required this.onSelect,
     this.emptyMessage = 'Todavía no hay nada para mostrar.',
+    this.header,
+    this.body,
   });
+
+  /// Controls above the search field (section switcher, filters).
+  final Widget? header;
+
+  /// Replaces the list (loading or error states); search stays visible.
+  final Widget? body;
 
   final String title;
   final List<AiderListItem> items;
@@ -228,7 +244,8 @@ class _AiderListPanelState extends State<AiderListPanel> {
       for (final item in widget.items)
         if (needle.isEmpty ||
             item.title.toLowerCase().contains(needle) ||
-            (item.subtitle?.toLowerCase().contains(needle) ?? false))
+            (item.subtitle?.toLowerCase().contains(needle) ?? false) ||
+            (item.searchText?.toLowerCase().contains(needle) ?? false))
           item,
     ];
 
@@ -240,6 +257,10 @@ class _AiderListPanelState extends State<AiderListPanel> {
           children: [
             Text(widget.title, style: theme.textTheme.titleLarge),
             const SizedBox(height: 12),
+            if (widget.header != null) ...[
+              widget.header!,
+              const SizedBox(height: 12),
+            ],
             TextField(
               onChanged: (value) => setState(() => _query = value),
               decoration: const InputDecoration(
@@ -250,7 +271,9 @@ class _AiderListPanelState extends State<AiderListPanel> {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: visible.isEmpty
+              child: widget.body != null
+                  ? widget.body!
+                  : visible.isEmpty
                   ? Center(
                       child: Text(
                         widget.items.isEmpty
@@ -275,9 +298,19 @@ class _AiderListPanelState extends State<AiderListPanel> {
                           child: ListTile(
                             leading: item.leading,
                             title: Text(item.title),
-                            subtitle: item.subtitle == null
+                            isThreeLine: item.footer != null,
+                            subtitle:
+                                item.subtitle == null && item.footer == null
                                 ? null
-                                : Text(item.subtitle!),
+                                : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (item.subtitle != null)
+                                        Text(item.subtitle!),
+                                      if (item.footer != null) item.footer!,
+                                    ],
+                                  ),
                             selected: selected,
                             onTap: () => widget.onSelect(item.id),
                           ),

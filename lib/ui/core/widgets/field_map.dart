@@ -122,7 +122,7 @@ class _AddFieldButton extends StatelessWidget {
               Icon(Icons.add, color: Colors.white, size: 20),
               SizedBox(width: 6),
               Text(
-                'Agregar campo',
+                'Agregar terreno',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
