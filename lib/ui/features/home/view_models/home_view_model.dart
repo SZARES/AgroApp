@@ -32,7 +32,7 @@ class HomeViewModel extends ChangeNotifier {
     _isSyncing = true;
     notifyListeners();
 
-    await _syncEngine.syncPending();
+    await _syncEngine.syncNow(retryFailed: true);
 
     if (_isDisposed) return;
     _isSyncing = false;

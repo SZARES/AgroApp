@@ -21,9 +21,9 @@ class ParcelView extends StatelessWidget {
             FieldMap(
               fields: mockMapFields,
               pins: mockMapPins,
-              onAddField: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Próximamente')),
-              ),
+              onAddField: () => ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Próximamente'))),
             ),
             const SizedBox(height: 24),
             Card(

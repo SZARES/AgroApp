@@ -64,7 +64,9 @@ class FieldMap extends StatelessWidget {
             const Positioned.fill(
               child: CustomPaint(painter: _BasemapPainter()),
             ),
-            Positioned.fill(child: CustomPaint(painter: _FieldsPainter(fields))),
+            Positioned.fill(
+              child: CustomPaint(painter: _FieldsPainter(fields)),
+            ),
             Positioned.fill(
               child: LayoutBuilder(
                 builder: (context, constraints) => Stack(
@@ -121,7 +123,10 @@ class _AddFieldButton extends StatelessWidget {
               SizedBox(width: 6),
               Text(
                 'Agregar campo',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -206,7 +211,11 @@ class _PinMarker extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [
-          BoxShadow(color: Color(0x4D000000), blurRadius: 6, offset: Offset(0, 2)),
+          BoxShadow(
+            color: Color(0x4D000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
         ],
       ),
       child: const Icon(Icons.priority_high, size: 16, color: Colors.white),

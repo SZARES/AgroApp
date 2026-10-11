@@ -3,11 +3,12 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 import '../../domain/models/sync_status.dart';
 import 'tables/app_settings_table.dart';
+import 'tables/local_records_table.dart';
 import 'tables/outbox_table.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Outbox, AppSettings])
+@DriftDatabase(tables: [Outbox, AppSettings, LocalRecords])
 class AppDatabase extends _$AppDatabase {
   /// Tests pass an in-memory [executor]; production opens the on-device file.
   AppDatabase([QueryExecutor? executor])
@@ -23,5 +24,16 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (migrator) => migrator.createAll(),
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.createTable(localRecords);
+        await migrator.addColumn(outbox, outbox.op);
+      }
+    },
+  );
 }

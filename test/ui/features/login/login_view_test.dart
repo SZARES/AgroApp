@@ -1,51 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hackathon/data/repositories/auth_repository.dart';
 import 'package:hackathon/domain/models/app_user.dart';
+import 'package:hackathon/domain/models/auth_failure.dart';
 import 'package:hackathon/domain/models/user_role.dart';
+import 'package:hackathon/ui/features/auth/view_models/auth_view_model.dart';
 import 'package:hackathon/ui/features/login/view_models/login_view_model.dart';
 import 'package:hackathon/ui/features/login/views/login_view.dart';
 import 'package:hackathon/ui/features/staff_home/views/staff_home_view.dart';
+import 'package:hackathon/utils/result.dart';
+
+import '../../../testing/fakes.dart';
+
+const _technician = AppUser(
+  id: 'u2',
+  email: 'tec@correo.pe',
+  fullName: 'Luis',
+  role: UserRole.technician,
+  status: UserStatus.active,
+);
 
 void main() {
-  group('MockAuthRepository', () {
-    const expectedRoles = {
-      '71226316': UserRole.farmer,
-      '75582477': UserRole.technician,
-      '75501107': UserRole.supervisor,
-      '71226320': UserRole.admin,
-    };
+  late FakeAuthRepository repository;
+  late LoginViewModel viewModel;
 
-    for (final MapEntry(key: dni, value: role) in expectedRoles.entries) {
-      test('DNI $dni signs in as ${role.name}', () async {
-        final viewModel = LoginViewModel(
-          authRepository: const MockAuthRepository(),
-        );
-
-        final user = await viewModel.signIn(dni);
-
-        expect(user?.role, role);
-        expect(viewModel.error, isNull);
-      });
-    }
+  setUp(() {
+    repository = FakeAuthRepository(signInResult: const Result.ok(_technician));
+    viewModel = LoginViewModel(
+      authViewModel: AuthViewModel(
+        authRepository: repository,
+        requestSync: () async => null,
+      ),
+    );
   });
 
   group('LoginViewModel', () {
-    late LoginViewModel viewModel;
-
-    setUp(() {
-      viewModel = LoginViewModel(authRepository: const MockAuthRepository());
+    test('rejects a malformed email without calling the backend', () async {
+      expect(await viewModel.signIn('no-es-correo', 'secreto123'), isNull);
+      expect(viewModel.error, LoginError.invalidEmail);
+      expect(repository.signIns, isEmpty);
     });
 
-    test('rejects a DNI that is not 8 digits', () async {
-      expect(await viewModel.signIn('1234'), isNull);
-      expect(viewModel.error, LoginError.invalidFormat);
+    test('rejects an empty password', () async {
+      expect(await viewModel.signIn('tec@correo.pe', ''), isNull);
+      expect(viewModel.error, LoginError.missingPassword);
     });
 
-    test('rejects an unregistered DNI', () async {
-      expect(await viewModel.signIn('00000000'), isNull);
-      expect(viewModel.error, LoginError.unknownDni);
+    test('does not enforce a minimum password length on login', () async {
+      expect(await viewModel.signIn('tec@correo.pe', 'a'), _technician);
     });
+
+    test('returns the signed-in user', () async {
+      expect(
+        await viewModel.signIn(' tec@correo.pe ', 'secreto123'),
+        _technician,
+      );
+      expect(viewModel.error, isNull);
+    });
+
+    final cases = {
+      AuthFailure.invalidCredentials: LoginError.invalidCredentials,
+      AuthFailure.inactiveAccount: LoginError.inactiveAccount,
+      AuthFailure.noProfile: LoginError.noProfile,
+      AuthFailure.offline: LoginError.offline,
+      AuthFailure.unknown: LoginError.unknown,
+    };
+    for (final MapEntry(key: failure, value: expected) in cases.entries) {
+      test('maps ${failure.name}', () async {
+        repository.signInResult = Result.error(AuthFailureException(failure));
+
+        expect(await viewModel.signIn('tec@correo.pe', 'secreto123'), isNull);
+        expect(viewModel.error, expected);
+      });
+    }
   });
 
   group('LoginView', () {
@@ -53,36 +79,81 @@ void main() {
       final signedIn = <AppUser>[];
       await tester.pumpWidget(
         MaterialApp(
-          home: LoginView(
-            viewModel: LoginViewModel(
-              authRepository: const MockAuthRepository(),
-            ),
-            onSignedIn: signedIn.add,
-          ),
+          home: LoginView(viewModel: viewModel, onSignedIn: signedIn.add),
         ),
       );
       return signedIn;
     }
 
-    testWidgets('a registered DNI reports the signed-in user', (tester) async {
+    Future<void> fill(
+      WidgetTester tester,
+      String email,
+      String password,
+    ) async {
+      await tester.enterText(find.byType(TextField).first, email);
+      await tester.enterText(find.byType(TextField).last, password);
+      await tester.tap(find.text('Entrar'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('valid credentials report the signed-in user', (tester) async {
       final signedIn = await pumpLogin(tester);
 
-      await tester.enterText(find.byType(TextField), '75582477');
-      await tester.tap(find.text('Ingresar'));
-      await tester.pumpAndSettle();
+      await fill(tester, 'tec@correo.pe', 'secreto123');
 
       expect(signedIn.single.role, UserRole.technician);
     });
 
-    testWidgets('an unregistered DNI shows an error and stays', (tester) async {
+    testWidgets('a bad email shows a plain-language error', (tester) async {
       final signedIn = await pumpLogin(tester);
 
-      await tester.enterText(find.byType(TextField), '00000000');
-      await tester.tap(find.text('Ingresar'));
-      await tester.pumpAndSettle();
+      await fill(tester, 'ana', 'secreto123');
 
-      expect(find.text('Este DNI no está registrado'), findsOneWidget);
+      expect(
+        find.text('Escriba un correo válido, por ejemplo nombre@correo.com'),
+        findsOneWidget,
+      );
       expect(signedIn, isEmpty);
+    });
+
+    testWidgets('wrong credentials show an error and stay', (tester) async {
+      repository.signInResult = const Result.error(
+        AuthFailureException(AuthFailure.invalidCredentials),
+      );
+      final signedIn = await pumpLogin(tester);
+
+      await fill(tester, 'tec@correo.pe', 'mala');
+
+      expect(
+        find.text('El correo o la contraseña no son correctos'),
+        findsOneWidget,
+      );
+      expect(signedIn, isEmpty);
+    });
+
+    testWidgets('offline sign-in explains that a connection is needed', (
+      tester,
+    ) async {
+      repository.signInResult = const Result.error(
+        AuthFailureException(AuthFailure.offline),
+      );
+      await pumpLogin(tester);
+
+      await fill(tester, 'tec@correo.pe', 'secreto123');
+
+      expect(find.textContaining('necesita conexión'), findsOneWidget);
+    });
+
+    testWidgets('the eye button shows and hides the password', (tester) async {
+      await pumpLogin(tester);
+      TextField password() =>
+          tester.widget<TextField>(find.byType(TextField).last);
+
+      expect(password().obscureText, isTrue);
+      await tester.tap(find.byTooltip('Mostrar contraseña'));
+      await tester.pump();
+
+      expect(password().obscureText, isFalse);
     });
   });
 

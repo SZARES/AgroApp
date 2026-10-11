@@ -18,6 +18,9 @@ class Outbox extends Table {
 
   TextColumn get lastError => text().nullable()();
 
+  /// Delivery route, see `SyncOp`.
+  TextColumn get op => text().withDefault(const Constant('batch'))();
+
   DateTimeColumn get clientCreatedAt => dateTime()();
 
   DateTimeColumn get updatedAt => dateTime()();

@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hackathon/data/local/app_database.dart';
+import 'package:hackathon/data/repositories/local_store.dart';
 import 'package:hackathon/data/repositories/outbox_repository.dart';
 import 'package:hackathon/data/services/sync_service.dart';
 import 'package:hackathon/data/sync/sync_engine.dart';
@@ -16,6 +17,7 @@ import '../../testing/fakes.dart';
 void main() {
   late AppDatabase database;
   late OutboxRepository repository;
+  late LocalStore localStore;
   late FakeSyncService syncService;
   late FakeConnectivityService connectivity;
   late SyncEngine engine;
@@ -23,10 +25,12 @@ void main() {
   setUp(() {
     database = AppDatabase(NativeDatabase.memory());
     repository = OutboxRepository(database);
+    localStore = LocalStore(database, repository);
     syncService = FakeSyncService();
     connectivity = FakeConnectivityService();
     engine = SyncEngine(
       repository: repository,
+      localStore: localStore,
       syncService: syncService,
       connectivity: connectivity,
     );
