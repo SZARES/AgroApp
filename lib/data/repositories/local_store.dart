@@ -103,6 +103,25 @@ class LocalStore {
     });
   }
 
+  /// Writes [row] to the replica only: not marked pending, not queued. For
+  /// device-side notes the server derives by itself (e.g. history comments).
+  Future<void> putLocal({
+    required String table,
+    required String id,
+    required JsonMap row,
+  }) {
+    return _database.transaction(() async {
+      final existing = await get(table, id);
+      await _upsertRow(
+        table: table,
+        id: id,
+        data: {...?existing, ...row, 'id': id},
+        updatedAt: _clock(),
+        pending: false,
+      );
+    });
+  }
+
   /// Marks the row deleted locally and queues the change (update by default).
   Future<void> softDelete({
     required String table,

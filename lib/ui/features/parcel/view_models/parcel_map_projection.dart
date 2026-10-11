@@ -16,7 +16,13 @@ const _margin = 0.12;
 /// Projects the parcels' polygons (or, as fallback, their center points) so
 /// they all fit the map, keeping the real proportions. Parcels without any
 /// coordinates are left out. Open problems become pins on their parcel.
-ParcelMapData projectParcels(List<Parcel> parcels) {
+///
+/// With [caseByParcel] (parcel id -> case id) pins come from that map instead
+/// and carry the case id, so a tap can open the case.
+ParcelMapData projectParcels(
+  List<Parcel> parcels, {
+  Map<String, String>? caseByParcel,
+}) {
   final located = parcels.where((p) => p.hasLocation).toList();
   if (located.isEmpty) return (fields: const [], pins: const []);
 
@@ -68,10 +74,21 @@ ParcelMapData projectParcels(List<Parcel> parcels) {
         ),
       );
     }
-    if (parcel.openIncidents > 0) {
-      final anchor = parcel.center ?? parcel.polygon.first;
-      pins.add(MapPin(position: project(anchor)));
+    final caseId = caseByParcel?[parcel.id];
+    if (caseByParcel != null ? caseId != null : parcel.openIncidents > 0) {
+      final anchor =
+          parcel.center ??
+          (caseByParcel != null
+              ? _centroid(parcel.polygon)
+              : parcel.polygon.first);
+      pins.add(MapPin(position: project(anchor), id: caseId));
     }
   }
   return (fields: fields, pins: pins);
 }
+
+GeoPoint _centroid(List<GeoPoint> points) => GeoPoint(
+  latitude: points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length,
+  longitude:
+      points.map((p) => p.longitude).reduce((a, b) => a + b) / points.length,
+);

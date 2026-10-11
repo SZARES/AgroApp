@@ -135,6 +135,39 @@ class IncidentHistoryEntry {
   final String? comment;
 }
 
+/// A recommendation the technician left on a case.
+@immutable
+class CaseRecommendation {
+  const CaseRecommendation({
+    required this.id,
+    required this.description,
+    required this.isConfirmed,
+    this.dueDate,
+    this.createdAt,
+    this.isPending = false,
+  });
+
+  final String id;
+  final String description;
+
+  /// True once a confirmation (farmer or technician) exists.
+  final bool isConfirmed;
+  final DateTime? dueDate;
+  final DateTime? createdAt;
+
+  /// True while the recommendation or its confirmation is not on the server.
+  final bool isPending;
+}
+
+/// A visit the technician scheduled for a case.
+@immutable
+class CaseVisit {
+  const CaseVisit({required this.date, this.comment});
+
+  final DateTime date;
+  final String? comment;
+}
+
 @immutable
 class IncidentDetail {
   const IncidentDetail({
@@ -142,6 +175,8 @@ class IncidentDetail {
     required this.description,
     required this.history,
     required this.photos,
+    this.recommendations = const [],
+    this.visit,
   });
 
   final IncidentSummary summary;
@@ -150,4 +185,8 @@ class IncidentDetail {
   /// Oldest first.
   final List<IncidentHistoryEntry> history;
   final List<IncidentPhotoInfo> photos;
+  final List<CaseRecommendation> recommendations;
+
+  /// Next scheduled visit, when there is one.
+  final CaseVisit? visit;
 }

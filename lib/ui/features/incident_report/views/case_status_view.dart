@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/models/incident.dart';
 import '../../../../domain/models/incident_status.dart';
+import '../../../../utils/result.dart';
 import '../view_models/case_status_view_model.dart';
 import 'incident_status_labels.dart';
 
@@ -88,6 +89,20 @@ class _Body extends StatelessWidget {
             done: i <= currentIndex,
             isLast: i == steps.length - 1,
           ),
+        if (detail.visit != null) ...[
+          const SizedBox(height: 24),
+          _VisitCard(visit: detail.visit!),
+        ],
+        if (detail.recommendations.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text('Recomendación del técnico', style: textTheme.titleLarge),
+          const SizedBox(height: 12),
+          for (final recommendation in detail.recommendations)
+            _RecommendationCard(
+              recommendation: recommendation,
+              viewModel: viewModel,
+            ),
+        ],
         if (detail.photos.isNotEmpty) ...[
           const SizedBox(height: 24),
           Text('Fotos', style: textTheme.titleLarge),
@@ -118,6 +133,106 @@ class _Body extends StatelessWidget {
         else
           for (final entry in detail.history) _HistoryTile(entry: entry),
       ],
+    );
+  }
+}
+
+class _VisitCard extends StatelessWidget {
+  const _VisitCard({required this.visit});
+
+  final CaseVisit visit;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final date = visit.date;
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.event_available_outlined, size: 36),
+        title: Text('Visita programada', style: textTheme.titleMedium),
+        subtitle: Text(
+          [
+            '${date.day.toString().padLeft(2, '0')}/'
+                '${date.month.toString().padLeft(2, '0')}/${date.year}',
+            ?visit.comment,
+          ].join('\n'),
+          style: textTheme.bodyLarge,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecommendationCard extends StatelessWidget {
+  const _RecommendationCard({
+    required this.recommendation,
+    required this.viewModel,
+  });
+
+  final CaseRecommendation recommendation;
+  final CaseStatusViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final messenger = ScaffoldMessenger.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(recommendation.description, style: textTheme.bodyLarge),
+            const SizedBox(height: 12),
+            if (recommendation.isConfirmed)
+              Row(
+                children: [
+                  Icon(Icons.check_circle, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    recommendation.isPending
+                        ? 'Lo hizo. Se enviará con conexión'
+                        : 'Lo hizo',
+                    style: textTheme.titleMedium,
+                  ),
+                ],
+              )
+            else
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final result = await viewModel.confirmRecommendation(
+                        recommendation.id,
+                      );
+                      if (result is Error<void>) {
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('No pudimos guardar. Intente otra vez'),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.check),
+                    label: const Text('Ya lo hice'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Queda pendiente en este caso'),
+                      ),
+                    ),
+                    icon: const Icon(Icons.schedule),
+                    label: const Text('Recordarme luego'),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

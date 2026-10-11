@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../data/repositories/admin_repository.dart';
+import '../../../../data/repositories/technician_repository.dart';
 import '../../../../domain/models/app_user.dart';
+import '../../../../domain/models/user_role.dart';
 import '../../../core/widgets/aider_shell.dart';
 import '../../../core/widgets/three_panel_scaffold.dart';
 import '../../admin/views/admin_view.dart';
+import '../../technician/view_models/technician_case_view_model.dart';
+import '../../technician/view_models/technician_cases_view_model.dart';
+import '../../technician/views/technician_workspace.dart';
 import '../console_modules.dart';
 
 /// The AIDER web console for technicians, supervisors and admins.
 ///
-/// Every module is an honest placeholder until its data is connected.
+/// Modules whose data is connected show it; the rest are honest placeholders.
 class ConsoleView extends StatefulWidget {
   const ConsoleView({super.key, required this.user, required this.onSignOut});
 
@@ -46,7 +51,22 @@ class _ConsoleViewState extends State<ConsoleView> {
     }
   }
 
-  Widget _scaffold(AiderNavItem module, Widget listPanel, Widget mainArea) {
+  /// The technician's alert inbox when the app provides one (tests may not).
+  TechnicianCasesViewModel? _technicianCases(BuildContext context) {
+    if (widget.user.role != UserRole.technician) return null;
+    try {
+      return context.read<TechnicianCasesViewModel>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  Widget _scaffold(
+    AiderNavItem module,
+    Widget listPanel,
+    Widget mainArea, {
+    int alertCount = 0,
+  }) {
     return ThreePanelScaffold(
       scaffoldKey: _scaffoldKey,
       title: Text(module.label),
@@ -56,6 +76,7 @@ class _ConsoleViewState extends State<ConsoleView> {
         onSelect: _select,
         userName: widget.user.fullName,
         onSignOut: widget.onSignOut,
+        alertCount: alertCount,
       ),
       listPanel: listPanel,
       mainArea: mainArea,
@@ -75,6 +96,23 @@ class _ConsoleViewState extends State<ConsoleView> {
               _scaffold(module, listPanel, mainArea),
         );
       }
+    }
+    final cases = _technicianCases(context);
+    if (cases != null &&
+        (module.id == ConsoleModules.home.id ||
+            module.id == ConsoleModules.alerts.id)) {
+      final repository = context.read<TechnicianRepository>();
+      return TechnicianWorkspace(
+        viewModel: cases,
+        caseViewModelBuilder: (id) =>
+            TechnicianCaseViewModel(repository: repository, caseId: id),
+        panelsBuilder: (listPanel, mainArea) => _scaffold(
+          module,
+          listPanel,
+          mainArea,
+          alertCount: cases.openCount,
+        ),
+      );
     }
     return _scaffold(
       module,
