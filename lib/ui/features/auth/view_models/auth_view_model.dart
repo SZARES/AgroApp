@@ -32,7 +32,13 @@ class AuthViewModel extends ChangeNotifier {
     required AuthRepository authRepository,
     required Future<Object?> Function() requestSync,
   }) : _authRepository = authRepository,
-       _requestSync = requestSync;
+       _requestSync = requestSync {
+    _expiredSubscription = _authRepository.sessionExpired.listen(
+      (_) => _onSessionExpired(),
+    );
+  }
+
+  StreamSubscription<void>? _expiredSubscription;
 
   final AuthRepository _authRepository;
 
@@ -70,8 +76,30 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Result<AppUser>> signIn(String email, String password) async {
-    final result = await _authRepository.signIn(email, password);
+  /// The server ended the session while the user was signed in: go back to
+  /// the login screen and say why ([restoreFailure] is `sessionExpired`).
+  void _onSessionExpired() {
+    if (_state is! AuthSignedIn) return;
+    _restoreFailure = AuthFailure.sessionExpired;
+    _setSignedOut();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_expiredSubscription?.cancel());
+    super.dispose();
+  }
+
+  Future<Result<AppUser>> signIn(
+    String email,
+    String password, {
+    bool farmerOnly = false,
+  }) async {
+    final result = await _authRepository.signIn(
+      email,
+      password,
+      farmerOnly: farmerOnly,
+    );
     if (result case Ok(:final value)) {
       _restoreFailure = null;
       _setSignedIn(value);

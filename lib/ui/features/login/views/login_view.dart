@@ -14,13 +14,18 @@ class LoginView extends StatefulWidget {
   final ValueChanged<AppUser> onSignedIn;
 
   /// Plain-language message for each failure; shown under the form.
-  static String messageFor(LoginError error) {
+  ///
+  /// [dni] tells whether the person signed in with a DNI, which changes the
+  /// wording of wrong-credentials.
+  static String messageFor(LoginError error, {bool dni = false}) {
     return switch (error) {
-      LoginError.invalidEmail =>
-        'Escriba un correo válido, por ejemplo nombre@correo.com',
+      LoginError.invalidEmail => 'Escriba un correo válido',
+      LoginError.invalidDni => 'El DNI debe tener 8 números',
       LoginError.missingPassword => 'Escriba su contraseña',
       LoginError.invalidCredentials =>
-        'El correo o la contraseña no son correctos',
+        dni
+            ? 'DNI o contraseña incorrecta'
+            : 'DNI/correo o contraseña incorrectos',
       LoginError.inactiveAccount =>
         'Su cuenta está desactivada. Hable con su técnico de AIDER',
       LoginError.noProfile =>
@@ -73,7 +78,9 @@ class _LoginViewState extends State<LoginView> {
                 builder: (context, _) {
                   final viewModel = widget.viewModel;
                   final error = viewModel.error;
-                  final emailError = error == LoginError.invalidEmail;
+                  final emailError =
+                      error == LoginError.invalidEmail ||
+                      error == LoginError.invalidDni;
                   final passwordError = error == LoginError.missingPassword;
                   final bannerError =
                       error != null && !emailError && !passwordError;
@@ -99,12 +106,17 @@ class _LoginViewState extends State<LoginView> {
                           enabled: !viewModel.isLoading,
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
-                          autofillHints: const [AutofillHints.username],
                           autocorrect: false,
+                          enableSuggestions: false,
                           style: const TextStyle(fontSize: 22),
                           decoration: InputDecoration(
-                            labelText: 'Correo',
-                            prefixIcon: const Icon(Icons.mail_outline),
+                            labelText: 'DNI o correo',
+                            helperText:
+                                'Agricultores: su DNI de 8 números. '
+                                'Técnicos y equipo AIDER: su correo.',
+                            helperMaxLines: 3,
+                            helperStyle: const TextStyle(fontSize: 16),
+                            prefixIcon: const Icon(Icons.person_outline),
                             errorText: emailError
                                 ? LoginView.messageFor(error!)
                                 : null,
@@ -146,7 +158,12 @@ class _LoginViewState extends State<LoginView> {
                         ),
                         if (bannerError) ...[
                           const SizedBox(height: 16),
-                          _ErrorBanner(message: LoginView.messageFor(error)),
+                          _ErrorBanner(
+                            message: LoginView.messageFor(
+                              error,
+                              dni: viewModel.lastWasDni,
+                            ),
+                          ),
                         ],
                         const SizedBox(height: 24),
                         FilledButton(

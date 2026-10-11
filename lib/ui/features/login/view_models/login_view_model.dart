@@ -2,11 +2,13 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../domain/models/app_user.dart';
 import '../../../../domain/models/auth_failure.dart';
+import '../../../../domain/models/login_identifier.dart';
 import '../../../../utils/result.dart';
 import '../../auth/view_models/auth_view_model.dart';
 
 enum LoginError {
   invalidEmail,
+  invalidDni,
   missingPassword,
   invalidCredentials,
   inactiveAccount,
@@ -19,8 +21,6 @@ class LoginViewModel extends ChangeNotifier {
   LoginViewModel({required AuthViewModel authViewModel})
     : _authViewModel = authViewModel;
 
-  static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-
   final AuthViewModel _authViewModel;
 
   bool _isLoading = false;
@@ -32,10 +32,17 @@ class LoginViewModel extends ChangeNotifier {
   bool _isDisposed = false;
 
   /// Returns the signed-in user, or null when [error] explains the failure.
-  Future<AppUser?> signIn(String email, String password) async {
+  ///
+  /// [identifier] is what the person typed: a farmer's DNI or an email.
+  Future<AppUser?> signIn(String identifier, String password) async {
     if (_isLoading) return null;
-    if (!_emailPattern.hasMatch(email.trim())) {
-      return _fail(LoginError.invalidEmail);
+    final parsed = LoginIdentifier.parse(identifier);
+    final login = parsed.identifier;
+    if (login == null) {
+      return _fail(switch (parsed.error!) {
+        LoginIdentifierError.invalidDni => LoginError.invalidDni,
+        LoginIdentifierError.invalidIdentifier => LoginError.invalidEmail,
+      });
     }
     // Length rules apply when a password is created, not when it is used.
     if (password.isEmpty) return _fail(LoginError.missingPassword);
@@ -44,8 +51,13 @@ class LoginViewModel extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    final result = await _authViewModel.signIn(email, password);
+    final result = await _authViewModel.signIn(
+      login.authEmail,
+      password,
+      farmerOnly: login.isDni,
+    );
     _isLoading = false;
+    _wasDni = login.isDni;
     switch (result) {
       case Ok(:final value):
         _notify();
@@ -54,6 +66,11 @@ class LoginViewModel extends ChangeNotifier {
         return _fail(_errorFor(error));
     }
   }
+
+  /// Whether the last attempt used the DNI form (picks the wording of
+  /// [LoginError.invalidCredentials]).
+  bool get lastWasDni => _wasDni;
+  bool _wasDni = false;
 
   void clearError() {
     if (_error == null) return;
@@ -68,6 +85,7 @@ class LoginViewModel extends ChangeNotifier {
       AuthFailure.inactiveAccount => LoginError.inactiveAccount,
       AuthFailure.noProfile => LoginError.noProfile,
       AuthFailure.offline => LoginError.offline,
+      AuthFailure.sessionExpired => LoginError.unknown,
       AuthFailure.unknown => LoginError.unknown,
     };
   }

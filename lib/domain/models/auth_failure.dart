@@ -13,6 +13,10 @@ enum AuthFailure {
   /// offline.
   offline,
 
+  /// The server ended the session (for example an expired refresh token)
+  /// while the app was online. The person must sign in again.
+  sessionExpired,
+
   unknown,
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'domain/models/app_user.dart';
+import 'domain/models/auth_failure.dart';
 import 'ui/core/theme/app_theme.dart';
 import 'ui/features/auth/view_models/auth_view_model.dart';
 import 'ui/features/auth/views/auth_gate.dart';
@@ -47,12 +48,48 @@ class _Welcome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WelcomeView(
-      onStart: () => Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const _Login())),
+    final notice = _noticeFor(context.read<AuthViewModel>().restoreFailure);
+    return Stack(
+      children: [
+        WelcomeView(
+          onStart: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const _Login())),
+        ),
+        if (notice != null)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Material(
+                color: Theme.of(context).colorScheme.errorContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    notice,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
+
+  static String? _noticeFor(AuthFailure? failure) => switch (failure) {
+    AuthFailure.sessionExpired =>
+      'Su sesión venció. Vuelva a entrar con su DNI o correo',
+    AuthFailure.inactiveAccount =>
+      'Su cuenta está desactivada. Hable con su técnico de AIDER',
+    AuthFailure.noProfile =>
+      'Su cuenta todavía no está lista. Hable con su técnico de AIDER',
+    _ => null,
+  };
 }
 
 class _Login extends StatelessWidget {
@@ -93,7 +130,8 @@ class _FarmerHome extends StatelessWidget {
               child: IconButton(
                 onPressed: onSignOut,
                 tooltip: 'Cerrar sesión',
-                icon: const Icon(Icons.logout),
+                constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                icon: const Icon(Icons.logout, semanticLabel: 'Cerrar sesión'),
               ),
             ),
           ),

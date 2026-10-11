@@ -82,6 +82,32 @@ void main() {
       });
     }
 
+    test('a DNI sign-in that returns a staff profile is rejected', () async {
+      service.profile = profileRow(role: 'technician');
+
+      final result = await repository.signIn(
+        '12345678@agricultores.agroapp',
+        'secreto123',
+        farmerOnly: true,
+      );
+
+      expect(failureOf(result), AuthFailure.invalidCredentials);
+      expect(service.sessionUserId, isNull);
+      expect(await cache.read(), isNull);
+    });
+
+    test('a DNI sign-in of a farmer works', () async {
+      final user = valueOf(
+        await repository.signIn(
+          '12345678@agricultores.agroapp',
+          'secreto123',
+          farmerOnly: true,
+        ),
+      );
+
+      expect(user.role, UserRole.farmer);
+    });
+
     test('maps wrong credentials', () async {
       final result = await repository.signIn('ana@correo.pe', 'incorrecta');
 
@@ -204,6 +230,44 @@ void main() {
 
       expect(restored, signedIn);
     });
+
+    test('a restart offline keeps the user signed in and the session', () async {
+      final signedIn = valueOf(
+        await repository.signIn('ana@correo.pe', 'secreto123'),
+      );
+      // "Restart": a new repository over the same persisted session and cache.
+      service.fetchError = const AuthFailureException(AuthFailure.offline);
+      final restarted = DefaultAuthRepository(
+        service: service,
+        cache: cache,
+        outbox: outbox,
+        syncEngine: engine,
+        networkTimeout: const Duration(milliseconds: 200),
+      );
+
+      final restored = valueOf(await restarted.restore());
+
+      expect(restored, signedIn);
+      expect(service.sessionUserId, 'u1');
+      expect(service.signOutCalls, 0);
+      expect(await cache.read(), signedIn);
+    });
+
+    test(
+      'sessionExpired relays the service event and keeps the cache',
+      () async {
+        await repository.signIn('ana@correo.pe', 'secreto123');
+        final events = <void>[];
+        final sub = repository.sessionExpired.listen(events.add);
+
+        service.endedController.add(null);
+        await Future<void>.delayed(Duration.zero);
+        await sub.cancel();
+
+        expect(events, hasLength(1));
+        expect(await cache.read(), isNotNull);
+      },
+    );
 
     test('offline without a cache fails as offline', () async {
       service

@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const ROLES = ["farmer", "technician", "supervisor", "admin"];
+const FARMER_EMAIL_DOMAIN = "agricultores.agroapp";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -48,12 +49,22 @@ Deno.serve(async (req) => {
     return json({ error: "JSON inválido" }, 400);
   }
 
-  const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
   const fullName = String(body.full_name ?? "").trim();
   const role = String(body.role ?? "");
+  const dni = String(body.dni ?? "").trim();
+
+  // Farmers sign in with their DNI; the login email is derived from it.
+  let email = String(body.email ?? "").trim().toLowerCase();
+  if (role === "farmer") {
+    if (!/^[0-9]{8}$/.test(dni)) return json({ error: "El DNI debe tener 8 números" }, 400);
+    email = `${dni}@${FARMER_EMAIL_DOMAIN}`;
+  }
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Correo inválido" }, 400);
+  if (role !== "farmer" && email.endsWith(`@${FARMER_EMAIL_DOMAIN}`)) {
+    return json({ error: "Ese dominio está reservado para agricultores" }, 400);
+  }
   if (password.length < 8) return json({ error: "La contraseña debe tener al menos 8 caracteres" }, 400);
   if (!fullName) return json({ error: "El nombre es obligatorio" }, 400);
   if (!ROLES.includes(role)) return json({ error: "Rol inválido" }, 400);
@@ -77,6 +88,7 @@ Deno.serve(async (req) => {
     p_zone_ids: body.zone_ids ?? [],
     p_community_id: body.community_id ?? null,
     p_age_range: body.age_range ?? null,
+    p_dni: role === "farmer" ? dni : null,
   });
 
   if (rpcError) {

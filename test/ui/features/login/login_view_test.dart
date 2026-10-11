@@ -40,6 +40,29 @@ void main() {
       expect(repository.signIns, isEmpty);
     });
 
+    test('a DNI signs in with the derived email and farmerOnly', () async {
+      await viewModel.signIn(' 12345678 ', 'secreto123');
+
+      expect(repository.signIns.single.email, '12345678@agricultores.agroapp');
+      expect(repository.signIns.single.farmerOnly, isTrue);
+      expect(viewModel.lastWasDni, isTrue);
+    });
+
+    test('an email signs in as is, lowercased, without farmerOnly', () async {
+      await viewModel.signIn('Tec@Correo.pe', 'secreto123');
+
+      expect(repository.signIns.single.email, 'tec@correo.pe');
+      expect(repository.signIns.single.farmerOnly, isFalse);
+    });
+
+    for (final digits in ['1234567', '123456789']) {
+      test('rejects a $digits-digit DNI without calling the backend', () async {
+        expect(await viewModel.signIn(digits, 'secreto123'), isNull);
+        expect(viewModel.error, LoginError.invalidDni);
+        expect(repository.signIns, isEmpty);
+      });
+    }
+
     test('rejects an empty password', () async {
       expect(await viewModel.signIn('tec@correo.pe', ''), isNull);
       expect(viewModel.error, LoginError.missingPassword);
@@ -109,11 +132,44 @@ void main() {
 
       await fill(tester, 'ana', 'secreto123');
 
+      expect(find.text('Escriba un correo válido'), findsOneWidget);
+      expect(signedIn, isEmpty);
+    });
+
+    testWidgets('a DNI with the wrong length shows a plain error', (
+      tester,
+    ) async {
+      await pumpLogin(tester);
+
+      await fill(tester, '1234567', 'secreto123');
+
+      expect(find.text('El DNI debe tener 8 números'), findsOneWidget);
+    });
+
+    testWidgets('the field explains who uses DNI and who uses email', (
+      tester,
+    ) async {
+      await pumpLogin(tester);
+
+      expect(find.text('DNI o correo'), findsOneWidget);
       expect(
-        find.text('Escriba un correo válido, por ejemplo nombre@correo.com'),
+        find.text(
+          'Agricultores: su DNI de 8 números. '
+          'Técnicos y equipo AIDER: su correo.',
+        ),
         findsOneWidget,
       );
-      expect(signedIn, isEmpty);
+    });
+
+    testWidgets('wrong DNI credentials use the DNI wording', (tester) async {
+      repository.signInResult = const Result.error(
+        AuthFailureException(AuthFailure.invalidCredentials),
+      );
+      await pumpLogin(tester);
+
+      await fill(tester, '12345678', 'mala');
+
+      expect(find.text('DNI o contraseña incorrecta'), findsOneWidget);
     });
 
     testWidgets('wrong credentials show an error and stay', (tester) async {
@@ -124,10 +180,7 @@ void main() {
 
       await fill(tester, 'tec@correo.pe', 'mala');
 
-      expect(
-        find.text('El correo o la contraseña no son correctos'),
-        findsOneWidget,
-      );
+      expect(find.text('DNI/correo o contraseña incorrectos'), findsOneWidget);
       expect(signedIn, isEmpty);
     });
 
