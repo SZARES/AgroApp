@@ -9,7 +9,6 @@ import 'package:hackathon/data/sync/sync_engine.dart';
 import 'package:hackathon/domain/models/home_summary.dart';
 import 'package:hackathon/domain/models/incident_status.dart';
 import 'package:hackathon/ui/core/theme/app_theme.dart';
-import 'package:hackathon/ui/core/widgets/primary_action_button.dart';
 import 'package:hackathon/ui/features/home/view_models/home_view_model.dart';
 import 'package:hackathon/ui/features/home/views/home_view.dart';
 
@@ -69,11 +68,7 @@ void main() {
           activityBuilder: (_) =>
               const Scaffold(body: Text('Pantalla actividad')),
           harvestBuilder: (_) => const Scaffold(body: Text('Pantalla cosecha')),
-          assistanceBuilder: (_) =>
-              const Scaffold(body: Text('Pantalla asistencias')),
           reportBuilder: (_) => const Scaffold(body: Text('Pantalla reporte')),
-          reportsBuilder: (_) =>
-              const Scaffold(body: Text('Pantalla reportes')),
           caseBuilder: (_) => const Scaffold(body: Text('Pantalla caso')),
         ),
       ),
@@ -82,7 +77,7 @@ void main() {
   }
 
   testWidgets(
-    'greets the farmer by first name with exactly three main actions',
+    'greets the farmer by first name with three register action cards',
     (tester) async {
       homeRepository = FakeHomeRepository(
         const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
@@ -90,11 +85,11 @@ void main() {
       await pumpHome(tester);
 
       expect(find.text('Hola, Rosa'), findsOneWidget);
-      expect(find.byType(PrimaryActionButton), findsNWidgets(3));
       expect(find.text('Registrar actividad'), findsOneWidget);
       expect(find.text('Reportar problema'), findsOneWidget);
       expect(find.text('Registrar cosecha'), findsOneWidget);
-      expect(find.text('Mis asistencias'), findsOneWidget);
+      expect(find.text('Mis asistencias'), findsNothing);
+      expect(find.text('Mis reportes'), findsNothing);
       expect(find.text('Todo guardado'), findsOneWidget);
     },
   );
@@ -104,7 +99,6 @@ void main() {
   ) async {
     await pumpHome(tester);
 
-    expect(find.byType(PrimaryActionButton), findsNothing);
     expect(find.text('Registrar actividad'), findsNothing);
     expect(find.text('Reportar problema'), findsNothing);
     expect(find.text('Registrar cosecha'), findsNothing);
@@ -112,13 +106,13 @@ void main() {
       find.textContaining('Agregue su terreno para registrar'),
       findsOneWidget,
     );
-    expect(find.text('Mis asistencias'), findsOneWidget);
-    expect(find.text('Mis reportes'), findsOneWidget);
 
     homeRepository.emit(const HomeSummary(parcelName: 'Campo nuevo'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(PrimaryActionButton), findsNWidgets(3));
+    expect(find.text('Registrar actividad'), findsOneWidget);
+    expect(find.text('Reportar problema'), findsOneWidget);
+    expect(find.text('Registrar cosecha'), findsOneWidget);
   });
 
   testWidgets('shows a plain greeting when the profile has no name', (
@@ -233,11 +227,13 @@ void main() {
     'Registrar actividad': 'Pantalla actividad',
     'Reportar problema': 'Pantalla reporte',
     'Registrar cosecha': 'Pantalla cosecha',
-    'Mis asistencias': 'Pantalla asistencias',
   };
 
   for (final MapEntry(key: label, value: view) in destinations.entries) {
     testWidgets('tapping "$label" opens its screen', (tester) async {
+      homeRepository = FakeHomeRepository(
+        const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
+      );
       await pumpHome(tester);
 
       await tester.ensureVisible(find.text(label));
@@ -247,19 +243,4 @@ void main() {
       expect(find.text(view), findsOneWidget);
     });
   }
-
-  testWidgets('tapping "Reportar problema" opens the report flow', (
-    tester,
-  ) async {
-    homeRepository = FakeHomeRepository(
-      const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
-    );
-    await pumpHome(tester);
-
-    await tester.ensureVisible(find.text('Reportar problema'));
-    await tester.tap(find.text('Reportar problema'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Pantalla reporte'), findsOneWidget);
-  });
 }

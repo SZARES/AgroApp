@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../domain/models/home_summary.dart';
 import '../../../../domain/models/incident_status.dart';
 import '../../../core/widgets/app_snack_bar.dart';
-import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/sync_status_indicator.dart';
 import '../view_models/home_view_model.dart';
 
@@ -14,9 +13,7 @@ class HomeView extends StatelessWidget {
     required this.parcelBuilder,
     required this.activityBuilder,
     required this.harvestBuilder,
-    required this.assistanceBuilder,
     required this.reportBuilder,
-    required this.reportsBuilder,
     required this.caseBuilder,
   });
 
@@ -25,20 +22,14 @@ class HomeView extends StatelessWidget {
   /// Builds the "Mi parcela" screen (it owns its own state).
   final WidgetBuilder parcelBuilder;
 
-  /// Builds the "Registrar actividad" screen (list and flow).
+  /// Builds the "Registrar actividad" flow (not the list).
   final WidgetBuilder activityBuilder;
 
   /// Builds the "Registrar cosecha" screen (list and flow).
   final WidgetBuilder harvestBuilder;
 
-  /// Builds the "Mis asistencias" screen.
-  final WidgetBuilder assistanceBuilder;
-
   /// Builds the "Reportar problema" flow.
   final WidgetBuilder reportBuilder;
-
-  /// Builds the "Mis reportes" list.
-  final WidgetBuilder reportsBuilder;
 
   /// Builds the status screen of one report.
   final Widget Function(String incidentId) caseBuilder;
@@ -61,7 +52,7 @@ class HomeView extends StatelessWidget {
                 ? 'Hola'
                 : 'Hola, ${viewModel.firstName}';
             return ListView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
               children: [
                 Text(greeting, style: textTheme.headlineMedium),
                 const SizedBox(height: 4),
@@ -85,35 +76,31 @@ class HomeView extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 24),
-                PrimaryActionButton(
-                  label: 'Registrar actividad',
-                  icon: Icons.edit_note,
-                  onPressed: () => _open(context, activityBuilder(context)),
-                ),
-                const SizedBox(height: 16),
-                PrimaryActionButton(
-                  label: 'Reportar problema',
-                  icon: Icons.report_problem_outlined,
-                  onPressed: () => _open(context, reportBuilder(context)),
-                ),
-                const SizedBox(height: 16),
-                PrimaryActionButton(
-                  label: 'Registrar cosecha',
-                  icon: Icons.agriculture,
-                  onPressed: () => _open(context, harvestBuilder(context)),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: () => _open(context, assistanceBuilder(context)),
-                  icon: const Icon(Icons.groups_outlined, size: 28),
-                  label: const Text('Mis asistencias'),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: () => _open(context, reportsBuilder(context)),
-                  icon: const Icon(Icons.fact_check_outlined, size: 28),
-                  label: const Text('Mis reportes'),
-                ),
+                if (!home.hasParcel)
+                  Text(
+                    'Agregue su terreno para registrar actividades, '
+                    'problemas y cosechas',
+                    style: textTheme.bodyLarge,
+                  )
+                else ...[
+                  _ActionCard(
+                    icon: Icons.edit_note,
+                    label: 'Registrar actividad',
+                    onTap: () => _open(context, activityBuilder(context)),
+                  ),
+                  const SizedBox(height: 12),
+                  _ActionCard(
+                    icon: Icons.report_problem_outlined,
+                    label: 'Reportar problema',
+                    onTap: () => _open(context, reportBuilder(context)),
+                  ),
+                  const SizedBox(height: 12),
+                  _ActionCard(
+                    icon: Icons.agriculture,
+                    label: 'Registrar cosecha',
+                    onTap: () => _open(context, harvestBuilder(context)),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 Text('Su resumen', style: textTheme.titleLarge),
                 const SizedBox(height: 12),
@@ -135,6 +122,46 @@ class HomeView extends StatelessWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Row(
+            children: [
+              Icon(icon, size: 32, color: theme.colorScheme.secondary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(label, style: theme.textTheme.titleMedium),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 32,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );
