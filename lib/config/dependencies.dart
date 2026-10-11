@@ -6,6 +6,7 @@ import '../data/local/app_database.dart';
 import '../data/repositories/admin_repository.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/local_store.dart';
+import '../data/repositories/location_repository.dart';
 import '../data/repositories/outbox_repository.dart';
 import '../data/services/admin_service.dart';
 import '../data/services/auth_service.dart';
@@ -27,6 +28,9 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
     Provider<AuthService>(create: (_) => SupabaseAuthService(supabaseClient)),
     Provider<SyncService>(create: (_) => SupabaseSyncService(supabaseClient)),
     Provider<ConnectivityService>(create: (_) => DeviceConnectivityService()),
+    Provider<LocationRepository>(
+      create: (_) => const DeviceLocationRepository(),
+    ),
     Provider<OutboxRepository>(
       create: (context) => OutboxRepository(context.read()),
     ),
