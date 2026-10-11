@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/models/outbox_record.dart';
+import '../../domain/models/sync_op.dart';
 import '../../domain/models/sync_status.dart';
 import '../../domain/models/sync_summary.dart';
 import '../local/app_database.dart';
@@ -24,6 +25,7 @@ class OutboxRepository {
     required String tableName,
     required Map<String, dynamic> payload,
     String? id,
+    SyncOp op = SyncOp.batch,
   }) async {
     final now = DateTime.now();
     final row = await _database
@@ -34,9 +36,11 @@ class OutboxRepository {
             targetTable: tableName,
             payload: jsonEncode(payload),
             syncStatus: SyncStatus.pending,
+            op: Value(op.name),
             clientCreatedAt: now,
             updatedAt: now,
           ),
+          mode: InsertMode.insertOrReplace,
         );
     return _toRecord(row);
   }
@@ -45,11 +49,20 @@ class OutboxRepository {
   ///
   /// Records with fewer attempts come first so one that keeps failing cannot
   /// hold back newer ones.
-  Future<List<OutboxRecord>> pendingBatch({int limit = 50}) async {
+  ///
+  /// Records that already failed [maxAttempts] times are skipped until
+  /// [resetAttempts] is called.
+  Future<List<OutboxRecord>> pendingBatch({
+    int limit = 50,
+    int? maxAttempts,
+  }) async {
     final query = _database.select(_database.outbox)
       ..where(
         (row) =>
-            row.syncStatus.isInValues([SyncStatus.pending, SyncStatus.error]),
+            row.syncStatus.isInValues([SyncStatus.pending, SyncStatus.error]) &
+            (maxAttempts == null
+                ? const Constant(true)
+                : row.attempts.isSmallerThanValue(maxAttempts)),
       )
       ..orderBy([
         (row) => OrderingTerm.asc(row.attempts),
@@ -80,6 +93,16 @@ class OutboxRepository {
       ),
     );
   }
+
+  /// Gives failed records a fresh set of attempts (e.g. after reconnecting).
+  Future<void> resetAttempts() {
+    final update = _database.update(_database.outbox)
+      ..where((row) => row.syncStatus.equalsValue(SyncStatus.error));
+    return update.write(const OutboxCompanion(attempts: Value(0)));
+  }
+
+  /// Current counts of unsent records.
+  Future<SyncSummary> summary() => watchSummary().first;
 
   /// Returns records left in `syncing` by an interrupted run to `pending`.
   Future<void> requeueInterrupted() {
@@ -153,6 +176,7 @@ class OutboxRepository {
       status: row.syncStatus,
       attempts: row.attempts,
       lastError: row.lastError,
+      op: SyncOp.parse(row.op),
       clientCreatedAt: row.clientCreatedAt,
       updatedAt: row.updatedAt,
     );

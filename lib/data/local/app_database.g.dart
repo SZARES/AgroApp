@@ -71,6 +71,16 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _opMeta = const VerificationMeta('op');
+  @override
+  late final GeneratedColumn<String> op = GeneratedColumn<String>(
+    'op',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('batch'),
+  );
   static const VerificationMeta _clientCreatedAtMeta = const VerificationMeta(
     'clientCreatedAt',
   );
@@ -102,6 +112,7 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
     syncStatus,
     attempts,
     lastError,
+    op,
     clientCreatedAt,
     updatedAt,
   ];
@@ -152,6 +163,9 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
         _lastErrorMeta,
         lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
       );
+    }
+    if (data.containsKey('op')) {
+      context.handle(_opMeta, op.isAcceptableOrUnknown(data['op']!, _opMeta));
     }
     if (data.containsKey('client_created_at')) {
       context.handle(
@@ -207,6 +221,10 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxRow> {
         DriftSqlType.string,
         data['${effectivePrefix}last_error'],
       ),
+      op: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}op'],
+      )!,
       clientCreatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}client_created_at'],
@@ -237,6 +255,9 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
   final SyncStatus syncStatus;
   final int attempts;
   final String? lastError;
+
+  /// Delivery route, see `SyncOp`.
+  final String op;
   final DateTime clientCreatedAt;
   final DateTime updatedAt;
   const OutboxRow({
@@ -246,6 +267,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
     required this.syncStatus,
     required this.attempts,
     this.lastError,
+    required this.op,
     required this.clientCreatedAt,
     required this.updatedAt,
   });
@@ -264,6 +286,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
     if (!nullToAbsent || lastError != null) {
       map['last_error'] = Variable<String>(lastError);
     }
+    map['op'] = Variable<String>(op);
     map['client_created_at'] = Variable<DateTime>(clientCreatedAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -279,6 +302,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
       lastError: lastError == null && nullToAbsent
           ? const Value.absent()
           : Value(lastError),
+      op: Value(op),
       clientCreatedAt: Value(clientCreatedAt),
       updatedAt: Value(updatedAt),
     );
@@ -298,6 +322,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
       ),
       attempts: serializer.fromJson<int>(json['attempts']),
       lastError: serializer.fromJson<String?>(json['lastError']),
+      op: serializer.fromJson<String>(json['op']),
       clientCreatedAt: serializer.fromJson<DateTime>(json['clientCreatedAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -314,6 +339,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
       ),
       'attempts': serializer.toJson<int>(attempts),
       'lastError': serializer.toJson<String?>(lastError),
+      'op': serializer.toJson<String>(op),
       'clientCreatedAt': serializer.toJson<DateTime>(clientCreatedAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -326,6 +352,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
     SyncStatus? syncStatus,
     int? attempts,
     Value<String?> lastError = const Value.absent(),
+    String? op,
     DateTime? clientCreatedAt,
     DateTime? updatedAt,
   }) => OutboxRow(
@@ -335,6 +362,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
     syncStatus: syncStatus ?? this.syncStatus,
     attempts: attempts ?? this.attempts,
     lastError: lastError.present ? lastError.value : this.lastError,
+    op: op ?? this.op,
     clientCreatedAt: clientCreatedAt ?? this.clientCreatedAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -350,6 +378,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
           : this.syncStatus,
       attempts: data.attempts.present ? data.attempts.value : this.attempts,
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      op: data.op.present ? data.op.value : this.op,
       clientCreatedAt: data.clientCreatedAt.present
           ? data.clientCreatedAt.value
           : this.clientCreatedAt,
@@ -366,6 +395,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
           ..write('syncStatus: $syncStatus, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
+          ..write('op: $op, ')
           ..write('clientCreatedAt: $clientCreatedAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -380,6 +410,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
     syncStatus,
     attempts,
     lastError,
+    op,
     clientCreatedAt,
     updatedAt,
   );
@@ -393,6 +424,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
           other.syncStatus == this.syncStatus &&
           other.attempts == this.attempts &&
           other.lastError == this.lastError &&
+          other.op == this.op &&
           other.clientCreatedAt == this.clientCreatedAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -404,6 +436,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
   final Value<SyncStatus> syncStatus;
   final Value<int> attempts;
   final Value<String?> lastError;
+  final Value<String> op;
   final Value<DateTime> clientCreatedAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -414,6 +447,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
     this.syncStatus = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
+    this.op = const Value.absent(),
     this.clientCreatedAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -425,6 +459,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
     required SyncStatus syncStatus,
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
+    this.op = const Value.absent(),
     required DateTime clientCreatedAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -441,6 +476,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
     Expression<String>? syncStatus,
     Expression<int>? attempts,
     Expression<String>? lastError,
+    Expression<String>? op,
     Expression<DateTime>? clientCreatedAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -452,6 +488,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
       if (syncStatus != null) 'sync_status': syncStatus,
       if (attempts != null) 'attempts': attempts,
       if (lastError != null) 'last_error': lastError,
+      if (op != null) 'op': op,
       if (clientCreatedAt != null) 'client_created_at': clientCreatedAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -465,6 +502,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
     Value<SyncStatus>? syncStatus,
     Value<int>? attempts,
     Value<String?>? lastError,
+    Value<String>? op,
     Value<DateTime>? clientCreatedAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -476,6 +514,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
       syncStatus: syncStatus ?? this.syncStatus,
       attempts: attempts ?? this.attempts,
       lastError: lastError ?? this.lastError,
+      op: op ?? this.op,
       clientCreatedAt: clientCreatedAt ?? this.clientCreatedAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -505,6 +544,9 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
     if (lastError.present) {
       map['last_error'] = Variable<String>(lastError.value);
     }
+    if (op.present) {
+      map['op'] = Variable<String>(op.value);
+    }
     if (clientCreatedAt.present) {
       map['client_created_at'] = Variable<DateTime>(clientCreatedAt.value);
     }
@@ -526,6 +568,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxRow> {
           ..write('syncStatus: $syncStatus, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
+          ..write('op: $op, ')
           ..write('clientCreatedAt: $clientCreatedAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -742,16 +785,444 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   }
 }
 
+class $LocalRecordsTable extends LocalRecords
+    with TableInfo<$LocalRecordsTable, LocalRecordRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _sourceTableMeta = const VerificationMeta(
+    'sourceTable',
+  );
+  @override
+  late final GeneratedColumn<String> sourceTable = GeneratedColumn<String>(
+    'table_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dataMeta = const VerificationMeta('data');
+  @override
+  late final GeneratedColumn<String> data = GeneratedColumn<String>(
+    'data',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pendingMeta = const VerificationMeta(
+    'pending',
+  );
+  @override
+  late final GeneratedColumn<bool> pending = GeneratedColumn<bool>(
+    'pending',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pending" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    sourceTable,
+    id,
+    data,
+    updatedAt,
+    deletedAt,
+    pending,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_records';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalRecordRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('table_name')) {
+      context.handle(
+        _sourceTableMeta,
+        sourceTable.isAcceptableOrUnknown(
+          data['table_name']!,
+          _sourceTableMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceTableMeta);
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('data')) {
+      context.handle(
+        _dataMeta,
+        this.data.isAcceptableOrUnknown(data['data']!, _dataMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dataMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('pending')) {
+      context.handle(
+        _pendingMeta,
+        pending.isAcceptableOrUnknown(data['pending']!, _pendingMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {sourceTable, id};
+  @override
+  LocalRecordRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalRecordRow(
+      sourceTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}table_name'],
+      )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      data: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}data'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      pending: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pending'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalRecordsTable createAlias(String alias) {
+    return $LocalRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalRecordRow extends DataClass implements Insertable<LocalRecordRow> {
+  /// Backend table the row belongs to (named to avoid clashing with
+  /// `Table.tableName`).
+  final String sourceTable;
+
+  /// Row id; composite keys are joined with `|`.
+  final String id;
+
+  /// JSON-encoded server row.
+  final String data;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  /// True while a local change has not reached the server yet.
+  final bool pending;
+  const LocalRecordRow({
+    required this.sourceTable,
+    required this.id,
+    required this.data,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.pending,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['table_name'] = Variable<String>(sourceTable);
+    map['id'] = Variable<String>(id);
+    map['data'] = Variable<String>(data);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['pending'] = Variable<bool>(pending);
+    return map;
+  }
+
+  LocalRecordsCompanion toCompanion(bool nullToAbsent) {
+    return LocalRecordsCompanion(
+      sourceTable: Value(sourceTable),
+      id: Value(id),
+      data: Value(data),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      pending: Value(pending),
+    );
+  }
+
+  factory LocalRecordRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalRecordRow(
+      sourceTable: serializer.fromJson<String>(json['sourceTable']),
+      id: serializer.fromJson<String>(json['id']),
+      data: serializer.fromJson<String>(json['data']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      pending: serializer.fromJson<bool>(json['pending']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'sourceTable': serializer.toJson<String>(sourceTable),
+      'id': serializer.toJson<String>(id),
+      'data': serializer.toJson<String>(data),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'pending': serializer.toJson<bool>(pending),
+    };
+  }
+
+  LocalRecordRow copyWith({
+    String? sourceTable,
+    String? id,
+    String? data,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? pending,
+  }) => LocalRecordRow(
+    sourceTable: sourceTable ?? this.sourceTable,
+    id: id ?? this.id,
+    data: data ?? this.data,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    pending: pending ?? this.pending,
+  );
+  LocalRecordRow copyWithCompanion(LocalRecordsCompanion data) {
+    return LocalRecordRow(
+      sourceTable: data.sourceTable.present
+          ? data.sourceTable.value
+          : this.sourceTable,
+      id: data.id.present ? data.id.value : this.id,
+      data: data.data.present ? data.data.value : this.data,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      pending: data.pending.present ? data.pending.value : this.pending,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalRecordRow(')
+          ..write('sourceTable: $sourceTable, ')
+          ..write('id: $id, ')
+          ..write('data: $data, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('pending: $pending')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(sourceTable, id, data, updatedAt, deletedAt, pending);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalRecordRow &&
+          other.sourceTable == this.sourceTable &&
+          other.id == this.id &&
+          other.data == this.data &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.pending == this.pending);
+}
+
+class LocalRecordsCompanion extends UpdateCompanion<LocalRecordRow> {
+  final Value<String> sourceTable;
+  final Value<String> id;
+  final Value<String> data;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> pending;
+  final Value<int> rowid;
+  const LocalRecordsCompanion({
+    this.sourceTable = const Value.absent(),
+    this.id = const Value.absent(),
+    this.data = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.pending = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalRecordsCompanion.insert({
+    required String sourceTable,
+    required String id,
+    required String data,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.pending = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : sourceTable = Value(sourceTable),
+       id = Value(id),
+       data = Value(data),
+       updatedAt = Value(updatedAt);
+  static Insertable<LocalRecordRow> custom({
+    Expression<String>? sourceTable,
+    Expression<String>? id,
+    Expression<String>? data,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? pending,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (sourceTable != null) 'table_name': sourceTable,
+      if (id != null) 'id': id,
+      if (data != null) 'data': data,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (pending != null) 'pending': pending,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalRecordsCompanion copyWith({
+    Value<String>? sourceTable,
+    Value<String>? id,
+    Value<String>? data,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? pending,
+    Value<int>? rowid,
+  }) {
+    return LocalRecordsCompanion(
+      sourceTable: sourceTable ?? this.sourceTable,
+      id: id ?? this.id,
+      data: data ?? this.data,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      pending: pending ?? this.pending,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (sourceTable.present) {
+      map['table_name'] = Variable<String>(sourceTable.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (data.present) {
+      map['data'] = Variable<String>(data.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (pending.present) {
+      map['pending'] = Variable<bool>(pending.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalRecordsCompanion(')
+          ..write('sourceTable: $sourceTable, ')
+          ..write('id: $id, ')
+          ..write('data: $data, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('pending: $pending, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $LocalRecordsTable localRecords = $LocalRecordsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [outbox, appSettings];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    outbox,
+    appSettings,
+    localRecords,
+  ];
 }
 
 typedef $$OutboxTableCreateCompanionBuilder =
@@ -762,6 +1233,7 @@ typedef $$OutboxTableCreateCompanionBuilder =
       required SyncStatus syncStatus,
       Value<int> attempts,
       Value<String?> lastError,
+      Value<String> op,
       required DateTime clientCreatedAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -774,6 +1246,7 @@ typedef $$OutboxTableUpdateCompanionBuilder =
       Value<SyncStatus> syncStatus,
       Value<int> attempts,
       Value<String?> lastError,
+      Value<String> op,
       Value<DateTime> clientCreatedAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -816,6 +1289,11 @@ class $$OutboxTableFilterComposer
 
   ColumnFilters<String> get lastError => $composableBuilder(
     column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get op => $composableBuilder(
+    column: $table.op,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -869,6 +1347,11 @@ class $$OutboxTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get op => $composableBuilder(
+    column: $table.op,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get clientCreatedAt => $composableBuilder(
     column: $table.clientCreatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -911,6 +1394,9 @@ class $$OutboxTableAnnotationComposer
 
   GeneratedColumn<String> get lastError =>
       $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<String> get op =>
+      $composableBuilder(column: $table.op, builder: (column) => column);
 
   GeneratedColumn<DateTime> get clientCreatedAt => $composableBuilder(
     column: $table.clientCreatedAt,
@@ -955,6 +1441,7 @@ class $$OutboxTableTableManager
                 Value<SyncStatus> syncStatus = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
+                Value<String> op = const Value.absent(),
                 Value<DateTime> clientCreatedAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -965,6 +1452,7 @@ class $$OutboxTableTableManager
                 syncStatus: syncStatus,
                 attempts: attempts,
                 lastError: lastError,
+                op: op,
                 clientCreatedAt: clientCreatedAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -977,6 +1465,7 @@ class $$OutboxTableTableManager
                 required SyncStatus syncStatus,
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
+                Value<String> op = const Value.absent(),
                 required DateTime clientCreatedAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -987,6 +1476,7 @@ class $$OutboxTableTableManager
                 syncStatus: syncStatus,
                 attempts: attempts,
                 lastError: lastError,
+                op: op,
                 clientCreatedAt: clientCreatedAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -1152,6 +1642,227 @@ typedef $$AppSettingsTableProcessedTableManager =
       AppSetting,
       PrefetchHooks Function()
     >;
+typedef $$LocalRecordsTableCreateCompanionBuilder =
+    LocalRecordsCompanion Function({
+      required String sourceTable,
+      required String id,
+      required String data,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> pending,
+      Value<int> rowid,
+    });
+typedef $$LocalRecordsTableUpdateCompanionBuilder =
+    LocalRecordsCompanion Function({
+      Value<String> sourceTable,
+      Value<String> id,
+      Value<String> data,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> pending,
+      Value<int> rowid,
+    });
+
+class $$LocalRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalRecordsTable> {
+  $$LocalRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get sourceTable => $composableBuilder(
+    column: $table.sourceTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get data => $composableBuilder(
+    column: $table.data,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pending => $composableBuilder(
+    column: $table.pending,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalRecordsTable> {
+  $$LocalRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get sourceTable => $composableBuilder(
+    column: $table.sourceTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get data => $composableBuilder(
+    column: $table.data,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get pending => $composableBuilder(
+    column: $table.pending,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalRecordsTable> {
+  $$LocalRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get sourceTable => $composableBuilder(
+    column: $table.sourceTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get data =>
+      $composableBuilder(column: $table.data, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get pending =>
+      $composableBuilder(column: $table.pending, builder: (column) => column);
+}
+
+class $$LocalRecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalRecordsTable,
+          LocalRecordRow,
+          $$LocalRecordsTableFilterComposer,
+          $$LocalRecordsTableOrderingComposer,
+          $$LocalRecordsTableAnnotationComposer,
+          $$LocalRecordsTableCreateCompanionBuilder,
+          $$LocalRecordsTableUpdateCompanionBuilder,
+          (
+            LocalRecordRow,
+            BaseReferences<_$AppDatabase, $LocalRecordsTable, LocalRecordRow>,
+          ),
+          LocalRecordRow,
+          PrefetchHooks Function()
+        > {
+  $$LocalRecordsTableTableManager(_$AppDatabase db, $LocalRecordsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalRecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalRecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalRecordsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> sourceTable = const Value.absent(),
+                Value<String> id = const Value.absent(),
+                Value<String> data = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> pending = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalRecordsCompanion(
+                sourceTable: sourceTable,
+                id: id,
+                data: data,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                pending: pending,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String sourceTable,
+                required String id,
+                required String data,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> pending = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalRecordsCompanion.insert(
+                sourceTable: sourceTable,
+                id: id,
+                data: data,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                pending: pending,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalRecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalRecordsTable,
+      LocalRecordRow,
+      $$LocalRecordsTableFilterComposer,
+      $$LocalRecordsTableOrderingComposer,
+      $$LocalRecordsTableAnnotationComposer,
+      $$LocalRecordsTableCreateCompanionBuilder,
+      $$LocalRecordsTableUpdateCompanionBuilder,
+      (
+        LocalRecordRow,
+        BaseReferences<_$AppDatabase, $LocalRecordsTable, LocalRecordRow>,
+      ),
+      LocalRecordRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1160,4 +1871,6 @@ class $AppDatabaseManager {
       $$OutboxTableTableManager(_db, _db.outbox);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$LocalRecordsTableTableManager get localRecords =>
+      $$LocalRecordsTableTableManager(_db, _db.localRecords);
 }

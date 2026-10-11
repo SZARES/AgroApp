@@ -33,6 +33,50 @@ class SupabaseSyncService implements SyncService {
     return _parse(response);
   }
 
+  @override
+  Future<List<Map<String, dynamic>>> pullTable(
+    String table, {
+    DateTime? since,
+    String cursorColumn = 'updated_at',
+    int limit = 1000,
+  }) async {
+    var query = _client.from(table).select();
+    if (since != null) {
+      query = query.gt(cursorColumn, since.toUtc().toIso8601String());
+    }
+    final rows = await query.order(cursorColumn, ascending: true).limit(limit);
+    return [for (final row in rows) Map<String, dynamic>.from(row)];
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> pullAll(String table) async {
+    final rows = await _client.from(table).select();
+    return [for (final row in rows) Map<String, dynamic>.from(row)];
+  }
+
+  @override
+  Future<void> upsertRow(String table, Map<String, dynamic> row) async {
+    await _client.from(table).upsert(row);
+  }
+
+  @override
+  Future<void> updateRow(
+    String table,
+    String id,
+    Map<String, dynamic> changes,
+  ) async {
+    final updated = await _client
+        .from(table)
+        .update(changes)
+        .eq('id', id)
+        .select('id');
+    if (updated.isEmpty) {
+      throw StateError(
+        'No row updated in $table (id $id): not visible or missing',
+      );
+    }
+  }
+
   SyncBatchResult _parse(Object? response) {
     if (response is! Map) {
       throw const FormatException('Unexpected sync_batch response');

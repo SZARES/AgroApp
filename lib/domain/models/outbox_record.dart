@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 
+import 'sync_op.dart';
 import 'sync_status.dart';
 
-/// A locally saved record waiting to be uploaded through `sync_batch`.
+/// A locally saved record waiting to be uploaded (see [SyncOp] for the route).
 @immutable
 class OutboxRecord {
   const OutboxRecord({
@@ -14,6 +15,7 @@ class OutboxRecord {
     required this.clientCreatedAt,
     required this.updatedAt,
     this.lastError,
+    this.op = SyncOp.batch,
   });
 
   final String id;
@@ -22,6 +24,7 @@ class OutboxRecord {
   final SyncStatus status;
   final int attempts;
   final String? lastError;
+  final SyncOp op;
   final DateTime clientCreatedAt;
   final DateTime updatedAt;
 
@@ -32,6 +35,7 @@ class OutboxRecord {
     SyncStatus? status,
     int? attempts,
     ValueGetter<String?>? lastError,
+    SyncOp? op,
     DateTime? clientCreatedAt,
     DateTime? updatedAt,
   }) {
@@ -42,6 +46,7 @@ class OutboxRecord {
       status: status ?? this.status,
       attempts: attempts ?? this.attempts,
       lastError: lastError != null ? lastError() : this.lastError,
+      op: op ?? this.op,
       clientCreatedAt: clientCreatedAt ?? this.clientCreatedAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

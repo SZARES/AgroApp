@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hackathon/data/local/app_database.dart';
+import 'package:hackathon/data/repositories/local_store.dart';
 import 'package:hackathon/data/repositories/outbox_repository.dart';
 import 'package:hackathon/data/sync/sync_engine.dart';
 import 'package:hackathon/ui/core/theme/app_theme.dart';
@@ -44,6 +45,7 @@ void main() {
       outboxRepository: repository,
       syncEngine: SyncEngine(
         repository: repository,
+        localStore: LocalStore(database, repository),
         syncService: syncService,
         connectivity: connectivity,
       ),

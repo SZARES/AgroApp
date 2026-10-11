@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/local/app_database.dart';
 import '../data/repositories/auth_repository.dart';
+import '../data/repositories/local_store.dart';
 import '../data/repositories/outbox_repository.dart';
 import '../data/services/connectivity_service.dart';
 import '../data/services/supabase_sync_service.dart';
@@ -23,10 +24,14 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
     Provider<OutboxRepository>(
       create: (context) => OutboxRepository(context.read()),
     ),
+    Provider<LocalStore>(
+      create: (context) => LocalStore(context.read(), context.read()),
+    ),
     Provider<SyncEngine>(
       lazy: false,
       create: (context) => SyncEngine(
         repository: context.read(),
+        localStore: context.read(),
         syncService: context.read(),
         connectivity: context.read(),
       )..start(),

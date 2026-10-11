@@ -21,4 +21,22 @@ abstract interface class SyncService {
     required String deviceId,
     required List<OutboxRecord> records,
   });
+
+  /// Rows of [table] whose [cursorColumn] is greater than [since], oldest
+  /// first, soft-deleted rows included. RLS decides what the user sees.
+  Future<List<Map<String, dynamic>>> pullTable(
+    String table, {
+    DateTime? since,
+    String cursorColumn = 'updated_at',
+    int limit = 1000,
+  });
+
+  /// Every visible row of [table], for tables without a cursor column.
+  Future<List<Map<String, dynamic>>> pullAll(String table);
+
+  /// PostgREST upsert keyed on the primary key.
+  Future<void> upsertRow(String table, Map<String, dynamic> row);
+
+  /// PostgREST update of one row; throws when no row was changed.
+  Future<void> updateRow(String table, String id, Map<String, dynamic> changes);
 }
