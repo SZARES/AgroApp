@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/field_map.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../view_models/add_parcel_view_model.dart';
 
@@ -148,7 +149,15 @@ class _AddParcelViewState extends State<AddParcelView> {
             style: textTheme.bodyLarge,
           ),
           const SizedBox(height: 16),
-          if (location != null)
+          if (location != null) ...[
+            FieldMap(
+              fields: [
+                MapFieldShape(name: vm.name.trim(), center: location),
+              ],
+              showIncidentSummary: false,
+              height: 260,
+            ),
+            const SizedBox(height: 12),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -169,8 +178,8 @@ class _AddParcelViewState extends State<AddParcelView> {
                   ],
                 ),
               ),
-            )
-          else
+            ),
+          ] else
             OutlinedButton.icon(
               onPressed: vm.isBusy ? null : vm.useDeviceLocation,
               icon: const Icon(Icons.my_location, size: 28),

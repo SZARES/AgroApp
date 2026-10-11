@@ -13,6 +13,9 @@ Future<void> main() async {
     publishableKey: supabasePublishableKey,
   );
   runApp(
-    MultiProvider(providers: buildProviders(supabase), child: const AgroApp()),
+    MultiProvider(
+      providers: buildProviders(Supabase.instance.client),
+      child: const AgroApp(),
+    ),
   );
 }

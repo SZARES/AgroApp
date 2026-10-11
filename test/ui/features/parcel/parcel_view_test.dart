@@ -66,7 +66,8 @@ void main() {
     ]);
 
     expect(find.byType(FieldMap), findsOneWidget);
-    expect(find.text('Campo del pozo'), findsOneWidget);
+    // Once on the map label and once in the list.
+    expect(find.text('Campo del pozo'), findsNWidgets(2));
     expect(find.text('Cultivo: Limón · 1,5 ha'), findsOneWidget);
     expect(find.text('2 ha'), findsOneWidget);
     expect(find.text('Por enviar'), findsOneWidget);

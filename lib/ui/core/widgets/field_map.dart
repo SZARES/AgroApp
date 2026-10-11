@@ -1,32 +1,68 @@
-import 'dart:math' as math;
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
-/// A field outline in map space. Every point is normalized to 0..1 on both axes.
+import '../../../config/map_config.dart';
+import '../../../domain/models/geo_point.dart';
+
+/// A field on the map, at its real coordinates.
+@immutable
 class MapFieldShape {
-  const MapFieldShape({required this.name, required this.points});
+  const MapFieldShape({
+    required this.name,
+    required this.center,
+    this.outline = const [],
+  });
 
   final String name;
-  final List<Offset> points;
+
+  /// Where the field's label goes.
+  final GeoPoint center;
+
+  /// The field's boundary; empty when only [center] is known.
+  final List<GeoPoint> outline;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MapFieldShape &&
+      other.name == name &&
+      other.center == center &&
+      listEquals(other.outline, outline);
+
+  @override
+  int get hashCode => Object.hash(name, center, Object.hashAll(outline));
 }
 
-/// An incident pin in map space. [position] is normalized to 0..1 on both axes.
+/// An incident pin at its real coordinates.
+@immutable
 class MapPin {
   const MapPin({required this.position, this.resolved = false, this.id});
 
-  final Offset position;
+  final GeoPoint position;
 
   /// Identifies the pin in [FieldMap.onPinTap]; null for pins that do nothing.
   final String? id;
 
   /// Resolved incidents are drawn muted so open ones stand out.
   final bool resolved;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MapPin &&
+      other.position == position &&
+      other.resolved == resolved &&
+      other.id == id;
+
+  @override
+  int get hashCode => Object.hash(position, resolved, id);
 }
 
 const _accent = Color(0xFFF0701E);
 const _fieldFill = Color(0x66F5B73B);
 const _pinColor = Color(0xFFE53935);
 const _panelColor = Color(0xEBFFFFFF);
+const _basemapFallback = Color(0xFF4A6B36);
 
 const _panelDecoration = BoxDecoration(
   color: _panelColor,
@@ -36,17 +72,20 @@ const _panelDecoration = BoxDecoration(
   ],
 );
 
-/// Satellite-style map section with field outlines and incident pins.
+LatLng _latLng(GeoPoint point) => LatLng(point.latitude, point.longitude);
+
+/// Satellite map with the fields and incident pins at their real location.
 ///
-/// The basemap is drawn in code so it works offline. Zoom and layer controls
-/// are visual only until a map engine is added.
-class FieldMap extends StatelessWidget {
+/// Tiles need a connection; without one the fields are still drawn, over a
+/// plain background.
+class FieldMap extends StatefulWidget {
   const FieldMap({
     super.key,
     required this.fields,
-    required this.pins,
+    this.pins = const [],
     this.onAddField,
     this.onPinTap,
+    this.showIncidentSummary = true,
     this.height = 360,
   });
 
@@ -56,55 +95,164 @@ class FieldMap extends StatelessWidget {
 
   /// Called with the id of a tapped pin that has one.
   final ValueChanged<String>? onPinTap;
+  final bool showIncidentSummary;
   final double height;
+
+  @override
+  State<FieldMap> createState() => _FieldMapState();
+}
+
+class _FieldMapState extends State<FieldMap> {
+  final _controller = MapController();
+
+  @override
+  void didUpdateWidget(FieldMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.fields, widget.fields)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fitAll();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  List<LatLng> get _allPoints => [
+    for (final field in widget.fields) ...[
+      _latLng(field.center),
+      ...field.outline.map(_latLng),
+    ],
+    for (final pin in widget.pins) _latLng(pin.position),
+  ];
+
+  CameraFit get _cameraFit => CameraFit.coordinates(
+    coordinates: _allPoints,
+    padding: const EdgeInsets.all(56),
+    maxZoom: 17,
+  );
+
+  void _fitAll() {
+    if (_allPoints.isEmpty) return;
+    _controller.fitCamera(_cameraFit);
+  }
+
+  void _zoomBy(double delta) {
+    final camera = _controller.camera;
+    _controller.move(camera.center, camera.zoom + delta);
+  }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final points = _allPoints;
+    if (points.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: height,
+      height: widget.height,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: Stack(
           children: [
-            const Positioned.fill(
-              child: CustomPaint(painter: _BasemapPainter()),
-            ),
             Positioned.fill(
-              child: CustomPaint(painter: _FieldsPainter(fields)),
-            ),
-            Positioned.fill(
-              child: LayoutBuilder(
-                builder: (context, constraints) => Stack(
-                  children: [
-                    for (final pin in pins)
-                      Positioned(
-                        left: pin.position.dx * constraints.maxWidth - 14,
-                        top: pin.position.dy * constraints.maxHeight - 14,
-                        child: _PinMarker(
-                          resolved: pin.resolved,
-                          onTap: pin.id == null || onPinTap == null
-                              ? null
-                              : () => onPinTap!(pin.id!),
-                        ),
-                      ),
-                  ],
+              child: FlutterMap(
+                mapController: _controller,
+                options: MapOptions(
+                  initialCameraFit: _cameraFit,
+                  maxZoom: mapMaxZoom,
+                  backgroundColor: _basemapFallback,
+                  interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                  ),
                 ),
+                children: [
+                  TileLayer(
+                    urlTemplate: mapTileUrl,
+                    userAgentPackageName: mapUserAgentPackageName,
+                    maxNativeZoom: mapMaxZoom.toInt(),
+                  ),
+                  PolygonLayer(
+                    polygons: [
+                      for (final field in widget.fields)
+                        if (field.outline.length >= 3)
+                          Polygon(
+                            points: field.outline.map(_latLng).toList(),
+                            color: _fieldFill,
+                            borderColor: _accent,
+                            borderStrokeWidth: 2.5,
+                          ),
+                    ],
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      for (final field in widget.fields)
+                        Marker(
+                          point: _latLng(field.center),
+                          width: 160,
+                          height: 64,
+                          child: _FieldMarker(name: field.name),
+                        ),
+                      for (final pin in widget.pins)
+                        Marker(
+                          point: _latLng(pin.position),
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.topRight,
+                          child: _PinMarker(
+                            resolved: pin.resolved,
+                            onTap: pin.id == null || widget.onPinTap == null
+                                ? null
+                                : () => widget.onPinTap!(pin.id!),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            if (onAddField != null)
+            const Positioned(left: 0, bottom: 0, child: _Attribution()),
+            if (widget.onAddField != null)
               Positioned(
                 top: 12,
                 left: 12,
-                child: _AddFieldButton(onPressed: onAddField!),
+                child: _AddFieldButton(onPressed: widget.onAddField!),
+              ),
+            if (widget.showIncidentSummary)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: _IncidentSummary(
+                  pins: widget.pins,
+                  textTheme: textTheme,
+                ),
               ),
             Positioned(
-              top: 12,
               right: 12,
-              child: _IncidentSummary(pins: pins, textTheme: textTheme),
+              bottom: 12,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _MapControl(
+                    icon: Icons.add,
+                    tooltip: 'Acercar',
+                    onPressed: () => _zoomBy(1),
+                  ),
+                  _MapControl(
+                    icon: Icons.remove,
+                    tooltip: 'Alejar',
+                    onPressed: () => _zoomBy(-1),
+                  ),
+                  _MapControl(
+                    icon: Icons.center_focus_strong_outlined,
+                    tooltip: 'Ver mis terrenos',
+                    onPressed: _fitAll,
+                  ),
+                ],
+              ),
             ),
-            const Positioned(right: 12, bottom: 12, child: _MapControls()),
           ],
         ),
       ),
@@ -179,30 +327,83 @@ class _IncidentSummary extends StatelessWidget {
   }
 }
 
-class _MapControls extends StatelessWidget {
-  const _MapControls();
+class _MapControl extends StatelessWidget {
+  const _MapControl({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
 
-  static const _icons = [
-    Icons.add,
-    Icons.remove,
-    Icons.sync,
-    Icons.layers_outlined,
-    Icons.my_location,
-  ];
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      margin: const EdgeInsets.only(top: 8),
+      decoration: _panelDecoration,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon, color: const Color(0xFF37474F)),
+      ),
+    );
+  }
+}
+
+class _Attribution extends StatelessWidget {
+  const _Attribution();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xB3FFFFFF),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: const Text(
+        '© $mapTileAttribution',
+        style: TextStyle(color: Color(0xFF1B1B1B), fontSize: 10),
+      ),
+    );
+  }
+}
+
+class _FieldMarker extends StatelessWidget {
+  const _FieldMarker({required this.name});
+
+  final String name;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        for (final icon in _icons)
-          Container(
-            width: 44,
-            height: 44,
-            margin: const EdgeInsets.only(top: 8),
-            decoration: _panelDecoration,
-            child: Icon(icon, color: const Color(0xFF37474F)),
+        const Icon(
+          Icons.location_on,
+          color: _accent,
+          size: 32,
+          shadows: [Shadow(color: Color(0x80000000), blurRadius: 6)],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: const BoxDecoration(
+            color: _panelColor,
+            borderRadius: BorderRadius.all(Radius.circular(8)),
           ),
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF1B1B1B),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -240,96 +441,4 @@ class _PinMarker extends StatelessWidget {
       child: Semantics(button: true, label: 'Abrir caso', child: marker),
     );
   }
-}
-
-class _BasemapPainter extends CustomPainter {
-  const _BasemapPainter();
-
-  static const _tones = [
-    Color(0xFF3F5E2E),
-    Color(0xFF4A6B36),
-    Color(0xFF6B8A4C),
-    Color(0xFF7C9A58),
-    Color(0xFF8DA66A),
-  ];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = _tones[1]);
-
-    // Seeded so the basemap looks the same on every repaint.
-    final random = math.Random(42);
-    for (var i = 0; i < 140; i++) {
-      final paint = Paint()
-        ..color = _tones[random.nextInt(_tones.length)].withValues(alpha: 0.8);
-      final center = Offset(
-        random.nextDouble() * size.width,
-        random.nextDouble() * size.height,
-      );
-      final width = size.width * (0.05 + random.nextDouble() * 0.12);
-      final height = size.height * (0.02 + random.nextDouble() * 0.05);
-      canvas.drawRect(
-        Rect.fromCenter(center: center, width: width, height: height),
-        paint,
-      );
-    }
-
-    final road = Path()
-      ..moveTo(0, size.height * 0.35)
-      ..quadraticBezierTo(
-        size.width * 0.3,
-        size.height * 0.45,
-        size.width * 0.55,
-        size.height * 0.1,
-      )
-      ..lineTo(size.width, size.height * 0.05);
-    canvas.drawPath(
-      road,
-      Paint()
-        ..color = const Color(0xB3D9CFB8)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _BasemapPainter oldDelegate) => false;
-}
-
-class _FieldsPainter extends CustomPainter {
-  const _FieldsPainter(this.fields);
-
-  final List<MapFieldShape> fields;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final fill = Paint()..color = _fieldFill;
-    final stroke = Paint()
-      ..color = _accent
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeJoin = StrokeJoin.round;
-
-    for (final field in fields) {
-      final path = Path();
-      for (var i = 0; i < field.points.length; i++) {
-        final point = Offset(
-          field.points[i].dx * size.width,
-          field.points[i].dy * size.height,
-        );
-        if (i == 0) {
-          path.moveTo(point.dx, point.dy);
-        } else {
-          path.lineTo(point.dx, point.dy);
-        }
-      }
-      path.close();
-      canvas.drawPath(path, fill);
-      canvas.drawPath(path, stroke);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _FieldsPainter oldDelegate) =>
-      oldDelegate.fields != fields;
 }

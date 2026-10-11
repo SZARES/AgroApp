@@ -84,6 +84,9 @@ void main() {
   testWidgets(
     'greets the farmer by first name with exactly three main actions',
     (tester) async {
+      homeRepository = FakeHomeRepository(
+        const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
+      );
       await pumpHome(tester);
 
       expect(find.text('Hola, Rosa'), findsOneWidget);
@@ -95,6 +98,28 @@ void main() {
       expect(find.text('Todo guardado'), findsOneWidget);
     },
   );
+
+  testWidgets('hides the actions that need a parcel until one exists', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+
+    expect(find.byType(PrimaryActionButton), findsNothing);
+    expect(find.text('Registrar actividad'), findsNothing);
+    expect(find.text('Reportar problema'), findsNothing);
+    expect(find.text('Registrar cosecha'), findsNothing);
+    expect(
+      find.textContaining('Agregue su terreno para registrar'),
+      findsOneWidget,
+    );
+    expect(find.text('Mis asistencias'), findsOneWidget);
+    expect(find.text('Mis reportes'), findsOneWidget);
+
+    homeRepository.emit(const HomeSummary(parcelName: 'Campo nuevo'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PrimaryActionButton), findsNWidgets(3));
+  });
 
   testWidgets('shows a plain greeting when the profile has no name', (
     tester,
@@ -222,4 +247,19 @@ void main() {
       expect(find.text(view), findsOneWidget);
     });
   }
+
+  testWidgets('tapping "Reportar problema" opens the report flow', (
+    tester,
+  ) async {
+    homeRepository = FakeHomeRepository(
+      const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
+    );
+    await pumpHome(tester);
+
+    await tester.ensureVisible(find.text('Reportar problema'));
+    await tester.tap(find.text('Reportar problema'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pantalla reporte'), findsOneWidget);
+  });
 }
