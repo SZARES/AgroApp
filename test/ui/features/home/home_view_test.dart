@@ -15,7 +15,6 @@ import 'package:hackathon/ui/features/assistance/views/assistance_view.dart';
 import 'package:hackathon/ui/features/harvest/views/harvest_view.dart';
 import 'package:hackathon/ui/features/home/view_models/home_view_model.dart';
 import 'package:hackathon/ui/features/home/views/home_view.dart';
-import 'package:hackathon/ui/features/incident_report/views/incident_report_view.dart';
 
 import '../../../testing/fakes.dart';
 import '../../../testing/home_fakes.dart';
@@ -83,6 +82,9 @@ void main() {
   testWidgets(
     'greets the farmer by first name with exactly three main actions',
     (tester) async {
+      homeRepository = FakeHomeRepository(
+        const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
+      );
       await pumpHome(tester);
 
       expect(find.text('Hola, Rosa'), findsOneWidget);
@@ -94,6 +96,28 @@ void main() {
       expect(find.text('Todo guardado'), findsOneWidget);
     },
   );
+
+  testWidgets('hides the actions that need a parcel until one exists', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+
+    expect(find.byType(PrimaryActionButton), findsNothing);
+    expect(find.text('Registrar actividad'), findsNothing);
+    expect(find.text('Reportar problema'), findsNothing);
+    expect(find.text('Registrar cosecha'), findsNothing);
+    expect(
+      find.textContaining('Agregue su terreno para registrar'),
+      findsOneWidget,
+    );
+    expect(find.text('Mis asistencias'), findsOneWidget);
+    expect(find.text('Mis reportes'), findsOneWidget);
+
+    homeRepository.emit(const HomeSummary(parcelName: 'Campo nuevo'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PrimaryActionButton), findsNWidgets(3));
+  });
 
   testWidgets('shows a plain greeting when the profile has no name', (
     tester,
@@ -205,13 +229,15 @@ void main() {
 
   final destinations = <String, Type>{
     'Registrar actividad': ActivityLogView,
-    'Reportar problema': IncidentReportView,
     'Registrar cosecha': HarvestView,
     'Mis asistencias': AssistanceView,
   };
 
   for (final MapEntry(key: label, value: view) in destinations.entries) {
     testWidgets('tapping "$label" opens $view', (tester) async {
+      homeRepository = FakeHomeRepository(
+        const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
+      );
       await pumpHome(tester);
 
       await tester.ensureVisible(find.text(label));
@@ -221,4 +247,19 @@ void main() {
       expect(find.byType(view), findsOneWidget);
     });
   }
+
+  testWidgets('tapping "Reportar problema" opens the report flow', (
+    tester,
+  ) async {
+    homeRepository = FakeHomeRepository(
+      const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
+    );
+    await pumpHome(tester);
+
+    await tester.ensureVisible(find.text('Reportar problema'));
+    await tester.tap(find.text('Reportar problema'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pantalla reporte'), findsOneWidget);
+  });
 }

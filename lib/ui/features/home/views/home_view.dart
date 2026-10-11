@@ -71,24 +71,34 @@ class HomeView extends StatelessWidget {
                   onSyncNow: viewModel.syncNow,
                 ),
                 const SizedBox(height: 24),
-                PrimaryActionButton(
-                  label: 'Registrar actividad',
-                  icon: Icons.edit_note,
-                  onPressed: () => _open(context, const ActivityLogView()),
-                ),
-                const SizedBox(height: 16),
-                PrimaryActionButton(
-                  label: 'Reportar problema',
-                  icon: Icons.report_problem_outlined,
-                  onPressed: () => _open(context, reportBuilder(context)),
-                ),
-                const SizedBox(height: 16),
-                PrimaryActionButton(
-                  label: 'Registrar cosecha',
-                  icon: Icons.agriculture,
-                  onPressed: () => _open(context, const HarvestView()),
-                ),
-                const SizedBox(height: 16),
+                // Activities, problems and harvests all belong to a parcel.
+                if (home.hasParcel) ...[
+                  PrimaryActionButton(
+                    label: 'Registrar actividad',
+                    icon: Icons.edit_note,
+                    onPressed: () => _open(context, const ActivityLogView()),
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryActionButton(
+                    label: 'Reportar problema',
+                    icon: Icons.report_problem_outlined,
+                    onPressed: () => _open(context, reportBuilder(context)),
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryActionButton(
+                    label: 'Registrar cosecha',
+                    icon: Icons.agriculture,
+                    onPressed: () => _open(context, const HarvestView()),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (!viewModel.isLoading) ...[
+                  Text(
+                    'Agregue su terreno para registrar actividades, '
+                    'problemas y cosechas.',
+                    style: textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 OutlinedButton.icon(
                   onPressed: () => _open(context, const AssistanceView()),
                   icon: const Icon(Icons.groups_outlined, size: 28),

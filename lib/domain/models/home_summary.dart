@@ -22,6 +22,9 @@ class HomeSummary {
 
   /// Name of the main parcel; null when the farmer has none yet.
   final String? parcelName;
+
+  /// Whether the farmer has land to register work, problems and harvests on.
+  bool get hasParcel => parcelName != null;
   final int parcelCount;
   final bool hasLocation;
 

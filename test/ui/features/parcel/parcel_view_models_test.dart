@@ -150,46 +150,33 @@ void main() {
       expect(data.pins, isEmpty);
     });
 
-    test('draws polygons inside the 0..1 map space', () {
+    test('keeps polygons at their real coordinates', () {
+      const polygon = [
+        GeoPoint(latitude: -5.0, longitude: -80.0),
+        GeoPoint(latitude: -5.0, longitude: -79.9),
+        GeoPoint(latitude: -5.1, longitude: -79.9),
+      ];
       final data = projectParcels(const [
-        Parcel(
-          id: 'a',
-          name: 'A',
-          polygon: [
-            GeoPoint(latitude: -5.0, longitude: -80.0),
-            GeoPoint(latitude: -5.0, longitude: -79.9),
-            GeoPoint(latitude: -5.1, longitude: -79.9),
-          ],
-        ),
+        Parcel(id: 'a', name: 'A', polygon: polygon),
       ]);
 
-      expect(data.fields.single.points, hasLength(3));
-      for (final p in data.fields.single.points) {
-        expect(p.dx, inInclusiveRange(0, 1));
-        expect(p.dy, inInclusiveRange(0, 1));
-      }
-      // North is up: the first point (lat -5.0) is above the last (lat -5.1).
-      expect(
-        data.fields.single.points.first.dy,
-        lessThan(data.fields.single.points.last.dy),
-      );
+      expect(data.fields.single.outline, polygon);
+      // Without a stored center, the label goes at the polygon's centroid.
+      expect(data.fields.single.center.latitude, closeTo(-5.0333, 1e-4));
+      expect(data.fields.single.center.longitude, closeTo(-79.9333, 1e-4));
     });
 
     test(
       'falls back to a marker for a center-only parcel and pins incidents',
       () {
+        const center = GeoPoint(latitude: -5.1, longitude: -80.6);
         final data = projectParcels(const [
-          Parcel(
-            id: 'a',
-            name: 'A',
-            center: GeoPoint(latitude: -5.1, longitude: -80.6),
-            openIncidents: 2,
-          ),
+          Parcel(id: 'a', name: 'A', center: center, openIncidents: 2),
         ]);
 
-        expect(data.fields.single.points, hasLength(4));
-        expect(data.pins, hasLength(1));
-        expect(data.pins.single.position.dx, closeTo(0.5, 1e-9));
+        expect(data.fields.single.outline, isEmpty);
+        expect(data.fields.single.center, center);
+        expect(data.pins.single.position, center);
       },
     );
   });

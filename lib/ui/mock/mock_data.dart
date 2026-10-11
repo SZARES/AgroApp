@@ -1,10 +1,6 @@
 /// Static sample data for the mobile mock. Replace with repositories later.
 library;
 
-import 'package:flutter/material.dart';
-
-import '../core/widgets/field_map.dart';
-
 enum FieldStatus { good, review, pending }
 
 enum CaseStatus { reported, underReview, visitScheduled, attended, closed }
@@ -103,44 +99,6 @@ const mockFields = [
 
 double get mockTotalHectares =>
     mockFields.fold(0, (total, field) => total + field.hectares);
-
-/// Field outlines for the map section, in normalized map space (0..1).
-const mockMapFields = [
-  MapFieldShape(
-    name: 'Campo del pozo',
-    points: [
-      Offset(0.30, 0.24),
-      Offset(0.42, 0.21),
-      Offset(0.44, 0.40),
-      Offset(0.33, 0.42),
-    ],
-  ),
-  MapFieldShape(
-    name: 'Campo de la quebrada',
-    points: [
-      Offset(0.05, 0.44),
-      Offset(0.22, 0.46),
-      Offset(0.28, 0.66),
-      Offset(0.10, 0.70),
-    ],
-  ),
-  MapFieldShape(
-    name: 'Campo del cerro',
-    points: [
-      Offset(0.30, 0.66),
-      Offset(0.56, 0.78),
-      Offset(0.46, 0.92),
-      Offset(0.26, 0.80),
-    ],
-  ),
-];
-
-/// Incident pins for the map section, in normalized map space (0..1).
-const mockMapPins = [
-  MapPin(position: Offset(0.37, 0.27)),
-  MapPin(position: Offset(0.14, 0.56), resolved: true),
-  MapPin(position: Offset(0.40, 0.76)),
-];
 
 const mockActivities = [
   MockActivity(

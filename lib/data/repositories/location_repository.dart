@@ -18,9 +18,15 @@ abstract class LocationRepository {
 
 /// [LocationRepository] backed by the device GPS (geolocator).
 class DeviceLocationRepository implements LocationRepository {
-  const DeviceLocationRepository({this.timeout = const Duration(seconds: 20)});
+  const DeviceLocationRepository({
+    this.timeout = const Duration(seconds: 20),
+    this.maxLastKnownAge = const Duration(minutes: 2),
+  });
 
   final Duration timeout;
+
+  /// How old the device's last known fix may be and still be used as-is.
+  final Duration maxLastKnownAge;
 
   @override
   Future<Result<GeoPoint>> currentPosition() async {
@@ -36,6 +42,8 @@ class DeviceLocationRepository implements LocationRepository {
           permission == LocationPermission.deniedForever) {
         return const Result.error(LocationFailure.permissionDenied);
       }
+      final lastKnown = await _recentLastKnownPosition();
+      if (lastKnown != null) return Result.ok(lastKnown);
       final position = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -47,6 +55,24 @@ class DeviceLocationRepository implements LocationRepository {
       );
     } on Object {
       return const Result.error(LocationFailure.unavailable);
+    }
+  }
+
+  /// The device's cached fix when it is fresh enough, so a new GPS request
+  /// (slow, and it hangs on some devices) is only made when really needed.
+  Future<GeoPoint?> _recentLastKnownPosition() async {
+    try {
+      final position = await Geolocator.getLastKnownPosition();
+      if (position == null) return null;
+      final age = DateTime.now().difference(position.timestamp);
+      if (age.isNegative || age > maxLastKnownAge) return null;
+      return GeoPoint(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+    } on Object {
+      // Not supported on every platform (web); fall back to a fresh request.
+      return null;
     }
   }
 }
