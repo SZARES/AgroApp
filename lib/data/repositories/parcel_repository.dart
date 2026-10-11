@@ -5,6 +5,7 @@ import '../../domain/models/parcel_failure.dart';
 import '../../domain/models/sync_op.dart';
 import '../../utils/result.dart';
 import 'local_store.dart';
+import 'record_lookups.dart';
 import 'replica_watch.dart';
 
 /// The farmer's parcels, read from and written to the local replica.
@@ -121,6 +122,9 @@ class LocalParcelRepository implements ParcelRepository {
       };
       // `parcels` is not accepted by sync_batch, so it goes out as an upsert.
       await _store.save(table: table, id: id, row: row, op: SyncOp.upsert);
+      // Activities/harvests need an active crop cycle; create a default one
+      // so the farmer is not blocked until a technician visits.
+      await ensureActiveCycle(_store, id);
       final saved = Parcel.tryFromRow({...row, 'id': id});
       if (saved == null) return const Result.error(ParcelFailure.saveFailed);
       return Result.ok(saved.copyWith(pendingSync: true));
@@ -129,17 +133,26 @@ class LocalParcelRepository implements ParcelRepository {
     }
   }
 
-  /// Zone of the farmer's first parcel, else of the farmer's community.
+  /// Zone of the farmer's first parcel, else of the farmer's community,
+  /// else any known zone from the local catalog (so a missing community_id
+  /// does not block "Agregar terreno" after the first sync).
   Future<String?> _zoneId() async {
     for (final row in await _ownRows()) {
       final zone = row['zone_id'];
-      if (zone is String) return zone;
+      if (zone is String && zone.isNotEmpty) return zone;
     }
     final farmer = await _store.get('farmers', _farmerId);
     final communityId = farmer?['community_id'];
-    if (communityId is! String) return null;
-    final community = await _store.get('communities', communityId);
-    final zone = community?['zone_id'];
-    return zone is String ? zone : null;
+    if (communityId is String) {
+      final community = await _store.get('communities', communityId);
+      final zone = community?['zone_id'];
+      if (zone is String && zone.isNotEmpty) return zone;
+    }
+    final zones = await _store.list('zones');
+    for (final zone in zones) {
+      final id = zone['id'];
+      if (id is String && id.isNotEmpty) return id;
+    }
+    return null;
   }
 }

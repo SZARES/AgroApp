@@ -76,11 +76,14 @@ class OutboxRepository {
   Future<void> markSyncing(Iterable<String> ids) =>
       _setStatus(ids, SyncStatus.syncing);
 
-  Future<void> markSynced(Iterable<String> ids) => _setStatus(
-    ids,
-    SyncStatus.synced,
-    extra: const OutboxCompanion(lastError: Value(null)),
-  );
+  /// Removes delivered rows from the outbox once the server has accepted them.
+  Future<void> markSynced(Iterable<String> ids) {
+    final idList = ids.toList();
+    if (idList.isEmpty) return Future.value();
+    return (_database.delete(
+      _database.outbox,
+    )..where((row) => row.id.isIn(idList))).go().then((_) {});
+  }
 
   Future<void> markFailed(String id, String error) {
     final outbox = _database.outbox;

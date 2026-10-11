@@ -8,8 +8,8 @@ import 'replica_watch.dart';
 
 /// Reads and writes the farmer's farm activities through the local replica.
 abstract class ActivityRepository {
-  /// Parcels with an active crop cycle.
-  Stream<List<CycleParcel>> watchParcels();
+  /// Farmer land ready for recording (parcel count + parcels with crop).
+  Stream<RecordLandStatus> watchLandStatus();
 
   /// Synced catalogs of the flow (types, products, units...).
   Stream<ActivityCatalog> watchCatalog();
@@ -55,10 +55,10 @@ class LocalActivityRepository implements ActivityRepository {
   final DateTime Function() _clock;
 
   @override
-  Stream<List<CycleParcel>> watchParcels() => watchDerived(
+  Stream<RecordLandStatus> watchLandStatus() => watchDerived(
     _store,
     cycleParcelTables,
-    () => loadCycleParcels(_store, _farmerId),
+    () => loadRecordLandStatus(_store, _farmerId, clock: _clock),
   );
 
   @override

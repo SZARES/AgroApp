@@ -68,27 +68,30 @@ class ActivityLogView extends StatelessWidget {
                   )
                 else
                   for (final activity in items)
-                    Card(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
-                        ),
-                        title: Text(
-                          activity.typeName,
-                          style: textTheme.titleMedium,
-                        ),
-                        subtitle: Text(
-                          _subtitle(activity),
-                          style: textTheme.bodyMedium,
-                        ),
-                        trailing: activity.isPending
-                            ? const PendingChip()
-                            : const Icon(Icons.chevron_right, size: 32),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => detailBuilder(activity.id),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Card(
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
+                          title: Text(
+                            activity.typeName,
+                            style: textTheme.titleMedium,
+                          ),
+                          subtitle: Text(
+                            _subtitle(activity),
+                            style: textTheme.bodyMedium,
+                          ),
+                          trailing: activity.isPending
+                              ? const PendingChip()
+                              : const Icon(Icons.chevron_right, size: 32),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => detailBuilder(activity.id),
+                            ),
                           ),
                         ),
                       ),

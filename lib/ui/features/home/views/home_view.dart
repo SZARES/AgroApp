@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/models/home_summary.dart';
 import '../../../../domain/models/incident_status.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/sync_status_indicator.dart';
 import '../view_models/home_view_model.dart';
@@ -77,7 +78,11 @@ class HomeView extends StatelessWidget {
                 SyncStatusIndicator(
                   summary: viewModel.summary,
                   isSyncing: viewModel.isSyncing,
-                  onSyncNow: viewModel.syncNow,
+                  onSyncNow: () async {
+                    final message = await viewModel.syncNow();
+                    if (!context.mounted || message.isEmpty) return;
+                    showAppSnackBar(context, message);
+                  },
                 ),
                 const SizedBox(height: 24),
                 PrimaryActionButton(

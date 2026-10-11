@@ -26,11 +26,12 @@ class RecordActivityViewModel extends ChangeNotifier {
   RecordActivityViewModel({required ActivityRepository repository})
     : _repository = repository {
     _subscriptions = [
-      repository.watchParcels().listen((parcels) {
-        _parcels = parcels;
+      repository.watchLandStatus().listen((land) {
+        _parcelCount = land.parcelCount;
+        _parcels = land.readyParcels;
         _parcelsLoaded = true;
-        if (parcels.length == 1) _parcelId = parcels.first.id;
-        if (_parcelId != null && !parcels.any((p) => p.id == _parcelId)) {
+        if (_parcels.length == 1) _parcelId = _parcels.first.id;
+        if (_parcelId != null && !_parcels.any((p) => p.id == _parcelId)) {
           _parcelId = null;
         }
         notifyListeners();
@@ -47,6 +48,7 @@ class RecordActivityViewModel extends ChangeNotifier {
   late final List<StreamSubscription<Object?>> _subscriptions;
   bool _disposed = false;
 
+  int _parcelCount = 0;
   List<CycleParcel> _parcels = const [];
   ActivityCatalog _catalog = const ActivityCatalog();
   bool _parcelsLoaded = false;
@@ -69,9 +71,15 @@ class RecordActivityViewModel extends ChangeNotifier {
   ActivityCatalog get catalog => _catalog;
   bool get isLoading => !_parcelsLoaded || !_catalogLoaded;
 
-  /// Nothing to ask yet: no parcel with an active crop, or no synced catalog.
-  bool get hasNoParcel => _parcels.isEmpty;
+  /// No land at all in "Mi parcela".
+  bool get hasNoParcel => _parcelsLoaded && _parcelCount == 0;
+
+  /// Has land, but no crop cycle is ready yet (catalog/sync still missing).
+  bool get needsCrop => _parcelsLoaded && _parcelCount > 0 && _parcels.isEmpty;
+
   bool get hasNoCatalog => _catalog.types.isEmpty;
+
+  bool get isBlocked => hasNoParcel || needsCrop || hasNoCatalog;
 
   String? get parcelId => _parcelId;
   String? get typeId => _typeId;
@@ -262,7 +270,7 @@ class RecordActivityViewModel extends ChangeNotifier {
     if (error is RecordException) {
       return switch (error.failure) {
         RecordFailure.noCycle =>
-          'Su parcela todavía no tiene un cultivo activo. Hable con su técnico',
+          'No encontramos su parcela. Vuelva a "Mi parcela" e intente de nuevo',
         RecordFailure.invalidNumber => 'Revise la cantidad y el monto',
         RecordFailure.missingChoice => 'Falta elegir una opción',
         RecordFailure.storage => 'No se pudo guardar en el teléfono',

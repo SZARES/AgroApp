@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/models/harvest.dart';
 import '../../../../domain/models/record_support.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/option_tile.dart';
 import '../../../core/widgets/step_flow.dart';
 import '../view_models/record_harvest_view_model.dart';
@@ -14,11 +15,10 @@ class RecordHarvestView extends StatelessWidget {
 
   Future<void> _submit(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     if (!await viewModel.submit()) return;
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Guardado. Se enviará cuando haya señal')),
-    );
+    if (context.mounted) {
+      showAppSnackBar(context, 'Guardado');
+    }
     navigator.pop();
   }
 
@@ -28,7 +28,7 @@ class RecordHarvestView extends StatelessWidget {
       listenable: viewModel,
       builder: (context, _) {
         final vm = viewModel;
-        final blocked = !vm.isLoading && (vm.hasNoParcel || vm.hasNoUnits);
+        final blocked = !vm.isLoading && vm.isBlocked;
         final isLast = !vm.isLoading && !blocked && vm.isAtLastStep;
         return StepFlowScaffold(
           title: 'Registrar cosecha',
@@ -41,9 +41,15 @@ class RecordHarvestView extends StatelessWidget {
               : vm.hasNoParcel
               ? const FlowNotice(
                   icon: Icons.map_outlined,
+                  text: 'Primero agregue su parcela en "Mi parcela"',
+                )
+              : vm.needsCrop
+              ? const FlowNotice(
+                  icon: Icons.agriculture_outlined,
                   text:
-                      'Primero agregue su parcela en "Mi parcela". '
-                      'Su técnico registra el cultivo',
+                      'Su parcela aún no tiene un cultivo. '
+                      'Espere a que se sincronice o pida a su técnico '
+                      'que registre el cultivo',
                 )
               : const FlowNotice(
                   icon: Icons.sync,

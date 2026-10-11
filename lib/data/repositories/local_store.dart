@@ -11,10 +11,23 @@ import 'outbox_repository.dart';
 
 typedef JsonMap = Map<String, dynamic>;
 
+/// Result of [LocalStore.save]: sent now, or queued for when there is signal.
+enum SaveDelivery { sentOnline, queuedOffline }
+
+/// Pushes one write to the server immediately. Returns `true` when delivered.
+typedef OnlineCommit =
+    Future<bool> Function({
+      required String table,
+      required String id,
+      required JsonMap payload,
+      required SyncOp op,
+    });
+
 /// The single API features use to read and write domain data.
 ///
-/// Reads come from the local replica; writes update the replica and queue the
-/// change in the outbox atomically. Only the sync engine talks to Supabase.
+/// Reads come from the local replica. Writes always update the replica; when
+/// online they go to Supabase first and only fall back to the outbox if the
+/// network fails (or the device is offline).
 class LocalStore {
   LocalStore(
     this._database,
@@ -30,6 +43,11 @@ class LocalStore {
   final OutboxRepository _outbox;
   final Uuid _uuid;
   final DateTime Function() _clock;
+
+  OnlineCommit? _onlineCommit;
+
+  /// Wired by [SyncEngine] after construction (avoids a circular create).
+  void attachOnlineCommit(OnlineCommit commit) => _onlineCommit = commit;
 
   /// New client-generated row id (UUID v4).
   String newId() => _uuid.v4();
@@ -71,21 +89,52 @@ class LocalStore {
     return row?.pending ?? false;
   }
 
-  /// Writes [row] to the replica (merged into any existing row, marked
-  /// pending) and queues it for upload, in one transaction.
+  /// Writes [row] to the replica. Tries the server first whenever an online
+  /// commit is wired; the outbox is only used if that push fails (no signal
+  /// or a transport/RLS error). Connectivity probes are not trusted alone —
+  /// Android often reports offline while HTTP still works.
   ///
-  /// For [SyncOp.update] the outbox payload carries only [row]'s fields; for
-  /// the other ops it carries the merged row, so an upsert is self-contained.
-  Future<void> save({
+  /// For [SyncOp.update] the payload carries only [row]'s fields; for the
+  /// other ops it carries the merged row, so an upsert is self-contained.
+  Future<SaveDelivery> save({
     required String table,
     required String id,
     required JsonMap row,
     required SyncOp op,
-  }) {
-    return _database.transaction(() async {
-      final existing = await get(table, id);
-      final merged = <String, dynamic>{...?existing, ...row, 'id': id};
-      final now = _clock();
+  }) async {
+    final existing = await get(table, id);
+    final merged = <String, dynamic>{...?existing, ...row, 'id': id};
+    final payload = op == SyncOp.update ? <String, dynamic>{...row, 'id': id} : merged;
+    final now = _clock();
+
+    // Always try the server first when SyncEngine is wired. Do not trust
+    // connectivity_plus alone — it often reports offline while HTTP works.
+    // A real offline device fails the push quickly and falls into the outbox.
+    final commit = _onlineCommit;
+    if (commit != null) {
+      try {
+        final sent = await commit(
+          table: table,
+          id: id,
+          payload: payload,
+          op: op,
+        );
+        if (sent) {
+          await _upsertRow(
+            table: table,
+            id: id,
+            data: merged,
+            updatedAt: now,
+            pending: false,
+          );
+          return SaveDelivery.sentOnline;
+        }
+      } on Object {
+        // Fall through to the offline queue.
+      }
+    }
+
+    await _database.transaction(() async {
       await _upsertRow(
         table: table,
         id: id,
@@ -95,12 +144,13 @@ class LocalStore {
       );
       await _outbox.enqueue(
         tableName: table,
-        payload: op == SyncOp.update ? {...row, 'id': id} : merged,
+        payload: payload,
         // Batch inserts reuse the row id so the server stays idempotent.
         id: op == SyncOp.batch ? id : null,
         op: op,
       );
     });
+    return SaveDelivery.queuedOffline;
   }
 
   /// Writes [row] to the replica only: not marked pending, not queued. For
@@ -123,7 +173,7 @@ class LocalStore {
   }
 
   /// Marks the row deleted locally and queues the change (update by default).
-  Future<void> softDelete({
+  Future<SaveDelivery> softDelete({
     required String table,
     required String id,
     SyncOp op = SyncOp.update,

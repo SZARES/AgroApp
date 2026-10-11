@@ -21,6 +21,10 @@ class DeviceConnectivityService implements ConnectivityService {
   Stream<bool> get onStatusChange =>
       _connectivity.onConnectivityChanged.map(_hasConnection).distinct();
 
-  bool _hasConnection(List<ConnectivityResult> results) =>
-      results.any((result) => result != ConnectivityResult.none);
+  /// Empty results mean "unknown" on some Android builds (especially without
+  /// ACCESS_NETWORK_STATE) — treat as online so sync still attempts.
+  bool _hasConnection(List<ConnectivityResult> results) {
+    if (results.isEmpty) return true;
+    return results.any((result) => result != ConnectivityResult.none);
+  }
 }

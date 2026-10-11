@@ -17,6 +17,7 @@ import '../data/services/supabase_auth_service.dart';
 import '../data/services/supabase_supervisor_service.dart';
 import '../data/services/supabase_sync_service.dart';
 import '../data/services/photo_service.dart';
+import '../data/services/place_lookup.dart';
 import '../data/services/supervisor_service.dart';
 import '../data/services/sync_service.dart';
 import '../data/sync/sync_engine.dart';
@@ -36,6 +37,7 @@ List<SingleChildWidget> buildProviders(SupabaseClient supabaseClient) {
     Provider<LocationRepository>(
       create: (_) => const DeviceLocationRepository(),
     ),
+    Provider<PlaceLookup>(create: (_) => DevicePlaceLookup()),
     Provider<OutboxRepository>(
       create: (context) => OutboxRepository(context.read()),
     ),

@@ -6,6 +6,7 @@ import '../../../../data/services/photo_service.dart';
 import '../../../../domain/models/assistance.dart';
 import '../../../../domain/models/incident.dart';
 import '../../../../domain/models/record_support.dart';
+import '../../../core/widgets/app_snack_bar.dart';
 import '../../../core/widgets/option_tile.dart';
 import '../../../core/widgets/primary_action_button.dart';
 import '../../../core/widgets/step_flow.dart';
@@ -20,11 +21,10 @@ class ExternalVisitView extends StatelessWidget {
 
   Future<void> _submit(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     if (!await viewModel.submit()) return;
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Guardado. Se enviará cuando haya señal')),
-    );
+    if (context.mounted) {
+      showAppSnackBar(context, 'Guardado');
+    }
     navigator.pop();
   }
 
