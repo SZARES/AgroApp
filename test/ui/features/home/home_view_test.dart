@@ -10,9 +10,6 @@ import 'package:hackathon/domain/models/home_summary.dart';
 import 'package:hackathon/domain/models/incident_status.dart';
 import 'package:hackathon/ui/core/theme/app_theme.dart';
 import 'package:hackathon/ui/core/widgets/primary_action_button.dart';
-import 'package:hackathon/ui/features/activity_log/views/activity_log_view.dart';
-import 'package:hackathon/ui/features/assistance/views/assistance_view.dart';
-import 'package:hackathon/ui/features/harvest/views/harvest_view.dart';
 import 'package:hackathon/ui/features/home/view_models/home_view_model.dart';
 import 'package:hackathon/ui/features/home/views/home_view.dart';
 
@@ -69,6 +66,11 @@ void main() {
         home: HomeView(
           viewModel: viewModel,
           parcelBuilder: (_) => const Scaffold(body: Text('Pantalla parcela')),
+          activityBuilder: (_) =>
+              const Scaffold(body: Text('Pantalla actividad')),
+          harvestBuilder: (_) => const Scaffold(body: Text('Pantalla cosecha')),
+          assistanceBuilder: (_) =>
+              const Scaffold(body: Text('Pantalla asistencias')),
           reportBuilder: (_) => const Scaffold(body: Text('Pantalla reporte')),
           reportsBuilder: (_) =>
               const Scaffold(body: Text('Pantalla reportes')),
@@ -227,24 +229,22 @@ void main() {
     expect(find.text('Todo guardado'), findsOneWidget);
   });
 
-  final destinations = <String, Type>{
-    'Registrar actividad': ActivityLogView,
-    'Registrar cosecha': HarvestView,
-    'Mis asistencias': AssistanceView,
+  final destinations = <String, String>{
+    'Registrar actividad': 'Pantalla actividad',
+    'Reportar problema': 'Pantalla reporte',
+    'Registrar cosecha': 'Pantalla cosecha',
+    'Mis asistencias': 'Pantalla asistencias',
   };
 
   for (final MapEntry(key: label, value: view) in destinations.entries) {
-    testWidgets('tapping "$label" opens $view', (tester) async {
-      homeRepository = FakeHomeRepository(
-        const HomeSummary(parcelName: 'Campo del pozo', parcelCount: 1),
-      );
+    testWidgets('tapping "$label" opens its screen', (tester) async {
       await pumpHome(tester);
 
       await tester.ensureVisible(find.text(label));
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
 
-      expect(find.byType(view), findsOneWidget);
+      expect(find.text(view), findsOneWidget);
     });
   }
 

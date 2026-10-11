@@ -1,91 +1,109 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/widgets/option_tile.dart';
+import '../../../../domain/models/activity.dart';
+import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/primary_action_button.dart';
-import '../../../mock/mock_data.dart';
-import 'activity_detail_view.dart';
+import '../../../core/widgets/step_flow.dart';
+import '../../../core/widgets/stream_view_model.dart';
 
-class ActivityLogView extends StatefulWidget {
-  const ActivityLogView({super.key});
+/// "Registrar actividad": the farmer's activities, plus the button that
+/// starts a new one.
+class ActivityLogView extends StatelessWidget {
+  const ActivityLogView({
+    super.key,
+    required this.viewModel,
+    required this.recordBuilder,
+    required this.detailBuilder,
+  });
 
-  @override
-  State<ActivityLogView> createState() => _ActivityLogViewState();
-}
+  final StreamViewModel<List<ActivitySummary>> viewModel;
 
-class _ActivityLogViewState extends State<ActivityLogView> {
-  static const _activities = [
-    (label: 'Riego', icon: Icons.water_drop_outlined),
-    (label: 'Abono', icon: Icons.grass),
-    (label: 'Fumigación', icon: Icons.pest_control),
-    (label: 'Poda', icon: Icons.content_cut),
-    (label: 'Siembra', icon: Icons.eco_outlined),
-    (label: 'Otra', icon: Icons.more_horiz),
-  ];
+  /// Builds the one-question-per-screen flow.
+  final WidgetBuilder recordBuilder;
 
-  int? _selected;
-
-  void _save() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Guardado en el celular')));
-    Navigator.of(context).pop();
-  }
+  /// Builds the detail screen of one activity.
+  final Widget Function(String activityId) detailBuilder;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Registrar actividad')),
+      appBar: AppBar(title: const Text('Mis actividades')),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text('¿Qué hizo hoy?', style: textTheme.titleLarge),
-            const SizedBox(height: 16),
-            for (var i = 0; i < _activities.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: OptionTile(
-                  label: _activities[i].label,
-                  icon: _activities[i].icon,
-                  selected: _selected == i,
-                  onTap: () => setState(() => _selected = i),
-                ),
-              ),
-            const SizedBox(height: 8),
-            PrimaryActionButton(
-              label: 'Guardar',
-              icon: Icons.save_outlined,
-              onPressed: _selected == null ? null : _save,
-            ),
-            const SizedBox(height: 32),
-            Text('Últimas actividades', style: textTheme.titleLarge),
-            const SizedBox(height: 8),
-            for (final activity in mockActivities)
-              Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
-                  ),
-                  title: Text(activity.title, style: textTheme.titleMedium),
-                  subtitle: Text(
-                    '${activity.field} · ${activity.date}',
-                    style: textTheme.bodyMedium,
-                  ),
-                  trailing: const Icon(Icons.chevron_right, size: 32),
-                  onTap: () => Navigator.push(
+        child: ListenableBuilder(
+          listenable: viewModel,
+          builder: (context, _) {
+            final items = viewModel.value;
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                PrimaryActionButton(
+                  label: 'Registrar actividad',
+                  icon: Icons.edit_note,
+                  onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => ActivityDetailView(activity: activity),
-                    ),
+                    MaterialPageRoute<void>(builder: recordBuilder),
                   ),
                 ),
-              ),
-          ],
+                const SizedBox(height: 32),
+                Text('Últimas actividades', style: textTheme.titleLarge),
+                const SizedBox(height: 8),
+                if (viewModel.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (viewModel.loadFailed)
+                  Text(
+                    'No pudimos leer sus actividades',
+                    style: textTheme.titleMedium,
+                  )
+                else if (items.isEmpty)
+                  const SizedBox(
+                    height: 240,
+                    child: EmptyState(
+                      icon: Icons.edit_note,
+                      title: 'Todavía no registró ninguna actividad',
+                    ),
+                  )
+                else
+                  for (final activity in items)
+                    Card(
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
+                        ),
+                        title: Text(
+                          activity.typeName,
+                          style: textTheme.titleMedium,
+                        ),
+                        subtitle: Text(
+                          _subtitle(activity),
+                          style: textTheme.bodyMedium,
+                        ),
+                        trailing: activity.isPending
+                            ? const PendingChip()
+                            : const Icon(Icons.chevron_right, size: 32),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => detailBuilder(activity.id),
+                          ),
+                        ),
+                      ),
+                    ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
+
+  static String _subtitle(ActivitySummary activity) => [
+    '${activity.parcelName} · ${formatShortDate(activity.date)}',
+    ?activity.quantityLabel,
+    if (activity.expenseAmount != null) formatSoles(activity.expenseAmount!),
+  ].join(' · ');
 }

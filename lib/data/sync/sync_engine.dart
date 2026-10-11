@@ -16,6 +16,13 @@ const localPathKey = 'local_path';
 /// Private Storage bucket of incident photos.
 const photoBucket = 'incidents';
 
+/// Private Storage bucket of the documents of external assistances.
+const documentBucket = 'external-documents';
+
+/// Bucket a file-carrying row uploads to, by its table.
+String _bucketFor(String table) =>
+    table == 'assistance_documents' ? documentBucket : photoBucket;
+
 class SyncReport {
   const SyncReport({this.synced = 0, this.failed = 0});
 
@@ -241,8 +248,8 @@ class SyncEngine {
     return SyncReport(synced: synced.length, failed: failed + uploadFailures);
   }
 
-  /// Photo rows carry the device file in `local_path`: the file goes to the
-  /// private bucket first, then the row is sent without that local-only field.
+  /// Photo and document rows carry the device file in `local_path`: the file
+  /// goes to its private bucket first, then the row is sent without that local-only field.
   Future<OutboxRecord> _withUploadedFile(OutboxRecord record) async {
     final localPath = record.payload[localPathKey];
     if (localPath is! String) return record;
@@ -251,7 +258,7 @@ class SyncEngine {
       throw StateError('Photo row without storage_path');
     }
     await _syncService.uploadFile(
-      bucket: photoBucket,
+      bucket: _bucketFor(record.tableName),
       path: storagePath,
       localPath: localPath,
     );
@@ -262,6 +269,16 @@ class SyncEngine {
   Future<String?> signedPhotoUrl(String storagePath) async {
     try {
       return await _syncService.signedUrl(photoBucket, storagePath);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Short-lived URL for a private document (the farmer's own external
+  /// assistance sheets).
+  Future<String?> signedDocumentUrl(String storagePath) async {
+    try {
+      return await _syncService.signedUrl(documentBucket, storagePath);
     } catch (_) {
       return null;
     }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'data/repositories/activity_repository.dart';
+import 'data/repositories/assistance_repository.dart';
+import 'data/repositories/harvest_repository.dart';
 import 'data/repositories/home_repository.dart';
 import 'data/repositories/incident_repository.dart';
 import 'data/repositories/location_repository.dart';
@@ -9,10 +12,26 @@ import 'data/repositories/technician_repository.dart';
 import 'data/services/photo_service.dart';
 import 'data/sync/sync_engine.dart';
 import 'domain/models/app_user.dart';
+import 'domain/models/activity.dart';
+import 'domain/models/assistance.dart';
 import 'domain/models/auth_failure.dart';
+import 'domain/models/harvest.dart';
 import 'domain/models/user_role.dart';
 import 'ui/core/theme/app_theme.dart';
+import 'ui/core/widgets/stream_view_model.dart';
+import 'ui/features/activity_log/view_models/record_activity_view_model.dart';
+import 'ui/features/activity_log/views/activity_detail_view.dart';
+import 'ui/features/activity_log/views/activity_log_view.dart';
+import 'ui/features/activity_log/views/record_activity_view.dart';
+import 'ui/features/assistance/view_models/assistance_detail_view_model.dart';
+import 'ui/features/assistance/view_models/external_visit_view_model.dart';
+import 'ui/features/assistance/views/assistance_detail_view.dart';
+import 'ui/features/assistance/views/assistance_view.dart';
+import 'ui/features/assistance/views/external_visit_view.dart';
 import 'ui/features/auth/view_models/auth_view_model.dart';
+import 'ui/features/harvest/view_models/record_harvest_view_model.dart';
+import 'ui/features/harvest/views/harvest_view.dart';
+import 'ui/features/harvest/views/record_harvest_view.dart';
 import 'ui/features/auth/views/auth_gate.dart';
 import 'ui/features/auth/views/sign_out_flow.dart';
 import 'ui/features/console/views/console_view.dart';
@@ -171,6 +190,25 @@ class _FarmerHome extends StatelessWidget {
             photoUrlResolver: context.read<SyncEngine>().signedPhotoUrl,
           ),
         ),
+        Provider<ActivityRepository>(
+          create: (context) => LocalActivityRepository(
+            store: context.read(),
+            farmerId: farmerId,
+            userId: user.id,
+          ),
+        ),
+        Provider<HarvestRepository>(
+          create: (context) =>
+              LocalHarvestRepository(store: context.read(), farmerId: farmerId),
+        ),
+        Provider<AssistanceRepository>(
+          create: (context) => LocalAssistanceRepository(
+            store: context.read(),
+            farmerId: farmerId,
+            userId: user.id,
+            documentUrlResolver: context.read<SyncEngine>().signedDocumentUrl,
+          ),
+        ),
         ChangeNotifierProvider(
           create: (context) => HomeViewModel(
             outboxRepository: context.read(),
@@ -186,6 +224,15 @@ class _FarmerHome extends StatelessWidget {
             viewModel: context.read<HomeViewModel>(),
             parcelBuilder: (_) =>
                 _ParcelScreen(repository: context.read<ParcelRepository>()),
+            activityBuilder: (_) => _ActivityScreen(
+              repository: context.read<ActivityRepository>(),
+            ),
+            harvestBuilder: (_) =>
+                _HarvestScreen(repository: context.read<HarvestRepository>()),
+            assistanceBuilder: (_) => _AssistanceScreen(
+              repository: context.read<AssistanceRepository>(),
+              photoService: context.read<PhotoService>(),
+            ),
             reportBuilder: (_) => _ReportScreen(
               repository: context.read<IncidentRepository>(),
               photoService: context.read<PhotoService>(),
@@ -229,6 +276,102 @@ class _ParcelScreen extends StatelessWidget {
         addParcelViewModelBuilder: () => AddParcelViewModel(
           repository: repository,
           locationRepository: context.read<LocationRepository>(),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityScreen extends StatelessWidget {
+  const _ActivityScreen({required this.repository});
+
+  final ActivityRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => StreamViewModel<List<ActivitySummary>>(
+        stream: repository.watchActivities(),
+        initial: const [],
+      ),
+      builder: (context, _) => ActivityLogView(
+        viewModel: context.read<StreamViewModel<List<ActivitySummary>>>(),
+        recordBuilder: (_) => ChangeNotifierProvider(
+          create: (_) => RecordActivityViewModel(repository: repository),
+          builder: (context, _) =>
+              RecordActivityView(viewModel: context.read()),
+        ),
+        detailBuilder: (id) => ChangeNotifierProvider(
+          create: (_) => StreamViewModel<ActivityDetail?>(
+            stream: repository.watchActivity(id),
+            initial: null,
+          ),
+          builder: (context, _) => ActivityDetailView(
+            viewModel: context.read<StreamViewModel<ActivityDetail?>>(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HarvestScreen extends StatelessWidget {
+  const _HarvestScreen({required this.repository});
+
+  final HarvestRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => StreamViewModel<List<HarvestSummary>>(
+        stream: repository.watchHarvests(),
+        initial: const [],
+      ),
+      builder: (context, _) => HarvestView(
+        viewModel: context.read<StreamViewModel<List<HarvestSummary>>>(),
+        recordBuilder: (_) => ChangeNotifierProvider(
+          create: (_) => RecordHarvestViewModel(repository: repository),
+          builder: (context, _) =>
+              RecordHarvestView(viewModel: context.read()),
+        ),
+      ),
+    );
+  }
+}
+
+class _AssistanceScreen extends StatelessWidget {
+  const _AssistanceScreen({
+    required this.repository,
+    required this.photoService,
+  });
+
+  final AssistanceRepository repository;
+  final PhotoService photoService;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => StreamViewModel<List<AssistanceSummary>>(
+        stream: repository.watchAssistances(),
+        initial: const [],
+      ),
+      builder: (context, _) => AssistanceView(
+        viewModel: context.read<StreamViewModel<List<AssistanceSummary>>>(),
+        detailBuilder: (id) => ChangeNotifierProvider(
+          create: (_) => AssistanceDetailViewModel(
+            repository: repository,
+            assistanceId: id,
+          ),
+          builder: (context, _) =>
+              AssistanceDetailView(viewModel: context.read()),
+        ),
+        externalVisitBuilder: (_) => ChangeNotifierProvider(
+          create: (_) => ExternalVisitViewModel(
+            repository: repository,
+            photoService: photoService,
+          ),
+          builder: (context, _) =>
+              ExternalVisitView(viewModel: context.read()),
         ),
       ),
     );
