@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/field_map.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../mock/mock_data.dart';
 import '../../incident_report/views/case_status_view.dart';
@@ -17,6 +18,14 @@ class ParcelView extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            FieldMap(
+              fields: mockMapFields,
+              pins: mockMapPins,
+              onAddField: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Próximamente')),
+              ),
+            ),
+            const SizedBox(height: 24),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -110,8 +119,8 @@ class _FieldCard extends StatelessWidget {
 
 ({String label, Color color}) _statusStyle(FieldStatus status) {
   return switch (status) {
-    FieldStatus.good => (label: 'Bien', color: const Color(0xFF2E7D32)),
-    FieldStatus.review => (label: 'Revisar', color: const Color(0xFFEF6C00)),
-    FieldStatus.pending => (label: 'Pendiente', color: const Color(0xFF546E7A)),
+    FieldStatus.good => (label: 'Bien', color: const Color(0xFF8BD450)),
+    FieldStatus.review => (label: 'Revisar', color: const Color(0xFFFFA040)),
+    FieldStatus.pending => (label: 'Pendiente', color: const Color(0xFFB0BEC5)),
   };
 }
